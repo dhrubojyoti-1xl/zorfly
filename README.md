@@ -38,9 +38,12 @@ API, and worker processes:
 - **Data:** PostgreSQL with Prisma
 - **Identity:** WorkOS AuthKit for enterprise authentication, SSO, SCIM, and RBAC
 - **Object storage:** Amazon S3
+- **Distributed cache:** Amazon ElastiCache Serverless for Valkey
 - **Asynchronous work:** Amazon SQS and EventBridge
 - **Email:** Amazon SES
 - **Notifications:** Novu as the notification orchestration layer
+- **AI integration:** provider-neutral orchestration with governed OpenAI and
+  Claude adapters
 - **Runtime:** Containers on Amazon ECS with AWS Fargate
 - **Delivery:** GitHub Actions using OpenID Connect to AWS
 
@@ -51,13 +54,15 @@ trade-offs.
 
 ```text
 .
-├── backend/     # API and asynchronous worker services
-├── database/    # Schema, migrations, seeds, and database tooling
-├── docker/      # Local and production container definitions
-├── docs/        # Architecture and engineering documentation
-├── frontend/    # Web application
-├── scripts/     # Repository automation
-└── tests/       # Cross-service integration, contract, and end-to-end tests
+├── backend/        # API and asynchronous worker deployables
+├── database/       # Schema, migrations, policies, seeds, and tooling
+├── docker/         # Development and production container definitions
+├── docs/           # Architecture, decisions, threat models, and runbooks
+├── frontend/       # Independent web and future mobile clients
+├── infrastructure/ # AWS CDK, environment topology, and policy-as-code
+├── packages/       # Platform-neutral contracts and shared capabilities
+├── scripts/        # CI, development, and operations automation
+└── tests/          # Contract, E2E, security, resilience, performance, and AI evals
 ```
 
 The directories are intentionally empty until their implementation phases begin.
@@ -67,6 +72,13 @@ rules.
 ## Documentation
 
 - [Architecture](docs/ARCHITECTURE.md)
+- [Principal Architecture Review](docs/ARCHITECTURE_REVIEW.md)
+- [Authorization Architecture](docs/AUTHORIZATION_ARCHITECTURE.md)
+- [Security Architecture](docs/SECURITY_ARCHITECTURE.md)
+- [AI and Agent Architecture](docs/AI_AND_AGENT_ARCHITECTURE.md)
+- [Data and API Architecture](docs/DATA_AND_API_ARCHITECTURE.md)
+- [Media and SVG Architecture](docs/MEDIA_AND_SVG_ARCHITECTURE.md)
+- [Operations and Disaster Recovery](docs/OPERATIONS_AND_RESILIENCE.md)
 - [Technology Stack](docs/TECH_STACK.md)
 - [Coding Standards](docs/CODING_STANDARDS.md)
 - [Project Structure](docs/PROJECT_STRUCTURE.md)

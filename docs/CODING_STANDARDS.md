@@ -104,6 +104,32 @@ on behavior and design.
 - Add threat-model notes to security-sensitive pull requests.
 - Dependencies require maintenance, license, and vulnerability review.
 
+## AI and agent systems
+
+- Domain code depends on provider-neutral AI contracts, never provider SDK
+  types.
+- Treat prompts as versioned production artifacts with owners and evaluations.
+- Treat model and tool outputs as untrusted external input.
+- Validate structured outputs before use.
+- Tool executors derive tenant and actor context outside model-controlled
+  arguments and re-authorize immediately before execution.
+- Bound every agent by time, turns, tokens, cost, tools, retries, and delegated
+  permissions.
+- Require idempotency and human approval for consequential side effects.
+- Do not log raw prompts, tool results, model output, or provider credentials by
+  default.
+- A model, prompt, or tool change requires representative regression evaluations.
+
+## Media and SVG
+
+- Detect content type from decoded bytes, not filenames or headers.
+- Process uploads and provider output through quarantine and sandboxed decoding.
+- Never inject user- or model-supplied SVG into the DOM.
+- Generate trusted SVG from a validated internal scene graph and deterministic
+  serializer.
+- Use allowlist sanitization and restrictive delivery headers for imported SVG.
+- Preserve asset lineage, hashes, sanitizer/renderer versions, and tenant scope.
+
 ## Testing
 
 Use the smallest test that proves the behavior:

@@ -16,6 +16,11 @@ Zorfly must:
 5. deploy safely without routine downtime;
 6. scale services independently when evidence requires it;
 7. minimize irreversible decisions during product discovery.
+8. support web, mobile, integration, and delegated-agent clients through stable
+   contracts;
+9. govern probabilistic AI and generated media without making providers part of
+   the trust boundary;
+10. recover critical service within approved and tested RTO/RPO targets.
 
 ## Context
 
@@ -34,7 +39,11 @@ flowchart LR
     API --> DB[("PostgreSQL")]
     API --> Objects[("Amazon S3")]
     API --> Queue["SQS and EventBridge"]
+    API --> Cache[("Valkey cache")]
+    API --> AI["AI control plane"]
     Queue --> Worker["Zorfly worker"]
+    AI --> Models["OpenAI, Claude, and approved providers"]
+    AI --> Tools["Authorized tool gateway"]
     Worker --> DB
     Worker --> Email["Amazon SES"]
     Worker --> Notify["Novu"]
@@ -72,6 +81,10 @@ Service extraction requires measurable evidence and an ADR.
 All runtime units are immutable containers. Persistent state lives only in
 managed data services.
 
+The AI orchestration capability begins as modules in the API and worker. It may
+be extracted only when its failure domain, scaling profile, security ownership,
+or release cadence requires independent deployment.
+
 ## Multi-tenancy
 
 The initial model is shared application and shared PostgreSQL cluster with a
@@ -92,6 +105,11 @@ Controls include:
 
 Dedicated database or deployment isolation may be added for regulated customers
 behind the same repository and contracts.
+
+Tenant isolation also applies to cache keys, queue admission, AI prompts and
+memory, tool execution, generated assets, cost accounting, logs, and support
+operations. See [Data and API Architecture](DATA_AND_API_ARCHITECTURE.md) and
+[AI and Agent Architecture](AI_AND_AGENT_ARCHITECTURE.md).
 
 ## Request and data flow
 
@@ -122,6 +140,10 @@ behind the same repository and contracts.
 
 GraphQL or additional protocols require a demonstrated use case and an ADR.
 
+The same public capability contracts serve web, future mobile, integrations, and
+agent clients. Product capability must not exist only behind Next.js-specific
+actions or browser cookies.
+
 ## Asynchronous processing
 
 - Commands that may exceed the request latency budget run asynchronously.
@@ -134,6 +156,15 @@ GraphQL or additional protocols require a demonstrated use case and an ADR.
   corresponding message.
 - Correlation and causation identifiers connect requests, messages, and audit
   events.
+- Per-tenant admission and concurrency controls prevent a hot tenant or AI
+  workload from starving critical jobs.
+
+## Caching
+
+Caching is layered across CloudFront, clients, Next.js, and Valkey. Every mutable
+entry has an owner, TTL, tenant-safe key, invalidation strategy, and source of
+truth. Cache failure must not weaken authorization or correctness. Full rules
+are defined in [Data and API Architecture](DATA_AND_API_ARCHITECTURE.md).
 
 ## Security architecture
 
@@ -146,6 +177,10 @@ GraphQL or additional protocols require a demonstrated use case and an ADR.
 - Support impersonation, if introduced, must be time-limited, visible,
   attributable, approved, and fully audited.
 
+The formal policy decision and enforcement model, role versioning,
+separation-of-duty controls, and delegated agent authority are defined in
+[Authorization Architecture](AUTHORIZATION_ARCHITECTURE.md).
+
 ### Data protection
 
 - TLS 1.2 or later in transit and AWS-managed encryption at rest.
@@ -156,6 +191,8 @@ GraphQL or additional protocols require a demonstrated use case and an ADR.
 - Backups are encrypted, access-controlled, tested, and covered by retention
   policy.
 - Logs and traces use redaction and allowlists.
+- AI model output, tool output, uploaded media, and SVG are untrusted until
+  validated by their deterministic boundary.
 
 ### Supply chain
 
@@ -179,6 +216,10 @@ launch. The platform will use:
 - zero-downtime, backward-compatible migrations;
 - separate development, staging, and production AWS accounts.
 
+Provisional service tiers, deployment controls, cross-region recovery, failover
+order, provider degradation, and exercise requirements are defined in
+[Operations and Resilience](OPERATIONS_AND_RESILIENCE.md).
+
 ## Observability
 
 OpenTelemetry provides vendor-neutral traces, metrics, and structured logs.
@@ -195,6 +236,10 @@ Operational dashboards cover:
 - critical business outcomes defined during feature design.
 
 Alerts must be actionable, owned, linked to a runbook, and tested.
+
+AI telemetry includes prompt/model versions, latency, tokens, tool calls, safety
+outcomes, approvals, queue time, and normalized cost without logging raw prompts
+or outputs by default.
 
 ## Data lifecycle
 

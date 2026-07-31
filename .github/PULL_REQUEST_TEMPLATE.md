@@ -22,8 +22,12 @@
 - Authentication or authorization impact:
 - Data or migration impact:
 - Privacy or security impact:
+- AI, agent-tool, prompt, model, or evaluation impact:
+- Media, upload, generated-image, or SVG impact:
+- Web, mobile, or public-contract compatibility:
 - Performance and cost impact:
 - Operational impact:
+- Recovery, RTO, or RPO impact:
 
 ## Rollout and rollback
 
@@ -38,3 +42,6 @@
 - [ ] Observability is sufficient to detect and diagnose failure.
 - [ ] Backward compatibility and migration safety were considered.
 - [ ] An ADR was added or updated for a significant decision.
+- [ ] AI changes include evaluation evidence, safety review, budgets, and a kill
+      switch.
+- [ ] New alerts have an owner and tested runbook.

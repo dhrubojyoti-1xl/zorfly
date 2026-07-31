@@ -20,6 +20,10 @@ test-results/
 playwright-report/
 blob-report/
 .nyc_output/
+eval-results/
+resilience-results/
+load-test-results/
+trace-artifacts/
 
 # Runtime data
 *.pid

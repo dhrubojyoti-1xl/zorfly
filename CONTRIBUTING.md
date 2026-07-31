@@ -6,6 +6,8 @@
 2. Discuss changes that affect architecture, public contracts, security,
    infrastructure, or data ownership before implementation.
 3. Keep each pull request focused on one outcome.
+4. Review the controlled-document map in `docs/README.md` when a change affects
+   architecture, security, AI, data, media, operations, or public contracts.
 
 ## Branches and commits
 
@@ -39,3 +41,8 @@ public contract. Use a sequential number and descriptive name, such as
 
 A change is complete when it is reviewed, tested at the correct level,
 documented, observable, secure, deployable, and reversible.
+
+AI model, prompt, tool, or provider changes additionally require representative
+evaluation evidence, safety review, cost/latency comparison, and a tested kill
+switch. Media and SVG changes require malicious-content and deterministic-render
+validation.

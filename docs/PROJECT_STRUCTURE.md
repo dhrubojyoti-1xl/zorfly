@@ -15,17 +15,45 @@ foundation phase.
 │   ├── CODEOWNERS
 │   └── PULL_REQUEST_TEMPLATE.md
 ├── backend/
+│   ├── api/
+│   └── worker/
 ├── database/
+│   ├── migrations/
+│   ├── policies/
+│   └── seeds/
 ├── docker/
+│   ├── development/
+│   └── production/
 ├── docs/
-│   ├── ARCHITECTURE.md
-│   ├── CODING_STANDARDS.md
-│   ├── IMPLEMENTATION_PLAN.md
-│   ├── PROJECT_STRUCTURE.md
-│   └── TECH_STACK.md
+│   ├── adr/
+│   ├── runbooks/
+│   ├── threat-models/
+│   └── *.md
 ├── frontend/
+│   ├── mobile/
+│   └── web/
+├── infrastructure/
+│   ├── cdk/
+│   ├── environments/
+│   └── policies/
+├── packages/
+│   ├── ai-core/
+│   ├── contracts/
+│   ├── design-tokens/
+│   ├── observability/
+│   ├── security/
+│   └── testing/
 ├── scripts/
+│   ├── ci/
+│   ├── development/
+│   └── operations/
 ├── tests/
+│   ├── contract/
+│   ├── e2e/
+│   ├── evals/
+│   ├── performance/
+│   ├── resilience/
+│   └── security/
 ├── .editorconfig
 ├── .gitignore
 ├── CONTRIBUTING.md
@@ -43,11 +71,16 @@ create these files now:
 
 ```text
 frontend/
-└── web/
+├── web/
+│   ├── app/
+│   ├── components/
+│   ├── features/
+│   ├── lib/
+│   └── tests/
+└── mobile/
     ├── app/
-    ├── components/
     ├── features/
-    ├── lib/
+    ├── platform/
     └── tests/
 
 backend/
@@ -56,34 +89,24 @@ backend/
 │       ├── modules/
 │       ├── platform/
 │       └── main.ts
-├── worker/
-│   └── src/
-└── packages/
-    ├── contracts/
-    ├── observability/
-    ├── security/
-    └── testing/
+└── worker/
+    └── src/
+        ├── consumers/
+        ├── modules/
+        └── main.ts
 
-database/
-├── migrations/
-├── prisma/
-├── seeds/
-└── tests/
+packages/
+├── contracts/
+├── ai-core/
+├── design-tokens/
+├── observability/
+├── security/
+└── testing/
 
-tests/
-├── contract/
-├── e2e/
-├── performance/
-└── security/
-
-docker/
-├── development/
-└── production/
-
-scripts/
-├── ci/
-├── development/
-└── operations/
+infrastructure/
+├── cdk/
+├── environments/
+└── policies/
 ```
 
 ## Directory responsibilities
@@ -96,15 +119,36 @@ describe.
 
 ### `frontend/`
 
-Browser-facing Zorfly applications. Frontend code may depend on generated or
-shared public contracts, design-system packages, and browser-safe utilities. It
-must not depend on backend implementations or server-only packages.
+Independent web and mobile clients. They may depend on public contracts,
+platform-neutral design tokens, and client-safe utilities. They must not depend
+on backend implementations, ORM models, cloud SDKs, or server-only packages.
+Web and mobile share semantics and tokens, not UI components by default.
 
 ### `backend/`
 
-Synchronous APIs, asynchronous workers, domain modules, and server-only shared
-packages. Each domain module owns its application interfaces and persistence
-access.
+Synchronous API and asynchronous worker deployables. Domain modules may be
+shared between these deployables inside server-only workspace packages created
+when implementation begins, but no backend implementation can become a client
+dependency.
+
+### `packages/`
+
+Deliberately small, platform-neutral contracts and cross-cutting interfaces:
+
+- `contracts`: OpenAPI/event-derived public types without runtime business logic;
+- `ai-core`: provider-neutral AI request, usage, tool, and policy contracts;
+- `design-tokens`: colors, typography, spacing, and semantic tokens;
+- `observability`: telemetry contracts and safe field definitions;
+- `security`: authentication/authorization contracts, not policy bypasses;
+- `testing`: shared harnesses and deterministic fixtures.
+
+This directory is not a home for generic helpers or domain ownership.
+
+### `infrastructure/`
+
+AWS CDK, environment topology, and policy-as-code. Environment files contain
+topology and identifiers only, never secrets. Infrastructure changes follow the
+same review, test, promotion, and rollback controls as application changes.
 
 ### `database/`
 
@@ -138,12 +182,20 @@ environment assumptions.
 
 ```mermaid
 flowchart TD
-    Web["frontend/web"] --> Contracts["backend/packages/contracts"]
+    Web["frontend/web"] --> Contracts["packages/contracts"]
+    Mobile["frontend/mobile"] --> Contracts
+    Web --> Tokens["packages/design-tokens"]
+    Mobile --> Tokens
     API["backend/api"] --> Domain["backend domain modules"]
     Worker["backend/worker"] --> Domain
+    API --> Shared["packages security, observability, and AI contracts"]
+    Worker --> Shared
     Domain --> Platform["backend platform interfaces"]
     Platform --> Adapters["database and provider adapters"]
+    Infra["infrastructure"] -. deploys .-> API
+    Infra -. deploys .-> Worker
     CrossTests["tests"] --> Web
+    CrossTests --> Mobile
     CrossTests --> API
 ```
 
@@ -155,6 +207,10 @@ flowchart TD
 - Contracts do not import application implementations.
 - Circular package or module dependencies fail CI.
 - Infrastructure adapters depend inward on interfaces.
+- `packages/ai-core` exposes provider-neutral contracts; OpenAI and Claude SDK
+  types remain in backend adapters.
+- Mobile and web never import one another.
+- Infrastructure does not become a runtime application dependency.
 
 ## Ownership
 
@@ -165,6 +221,8 @@ organization grows. Sensitive areas require specialist reviewers:
 - database schema and migrations;
 - infrastructure and deployment;
 - public API and event contracts;
+- AI prompts, tools, provider policy, evaluations, and generated-media pipelines;
+- mobile compatibility and public-client deprecations;
 - billing and audit systems when introduced.
 
 ## Adding a new module
@@ -177,6 +235,23 @@ Before adding a module:
 4. define authorization and audit requirements;
 5. establish unit, integration, contract, and operational tests;
 6. add an ADR if the boundary affects multiple teams or deployable units.
+
+## Extracting a microservice
+
+A module remains in the modular monolith unless evidence demonstrates at least
+one strong driver:
+
+- independent scaling or tenant-isolation profile;
+- failure containment that cannot be achieved in-process;
+- distinct security, compliance, or data-residency boundary;
+- stable data ownership and contract;
+- independent team ownership and release cadence;
+- technology requirement that materially conflicts with the main runtime.
+
+Extraction requires an ADR, service-level objectives, on-call owner, API/event
+contract, data migration, failure/degradation model, cost estimate, and rollback
+plan. Technical-layer services such as a generic "database service" are
+prohibited.
 
 ## Generated content
 

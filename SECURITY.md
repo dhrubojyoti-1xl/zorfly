@@ -32,3 +32,6 @@ a fix is available.
 
 This policy will be expanded with supported-version and disclosure details
 before the first public release.
+
+The system security design and implementation gates are defined in
+[Security Architecture](docs/SECURITY_ARCHITECTURE.md).

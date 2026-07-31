@@ -6,4 +6,7 @@
 /database/ @workspace1xl-cmd
 /docker/ @workspace1xl-cmd
 /docs/ @workspace1xl-cmd
+/infrastructure/ @workspace1xl-cmd
+/packages/ai-core/ @workspace1xl-cmd
+/packages/security/ @workspace1xl-cmd
 /SECURITY.md @workspace1xl-cmd
