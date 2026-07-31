@@ -1,0 +1,44 @@
+{
+  "name": "zorfly",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Zorfly enterprise workforce quality, assessment, learning, and AI platform.",
+  "license": "UNLICENSED",
+  "packageManager": "pnpm@11.18.0",
+  "engines": {
+    "node": ">=24.0.0 <25"
+  },
+  "scripts": {
+    "build": "turbo run build",
+    "clean": "turbo run clean && rm -rf .turbo",
+    "dev": "turbo run dev --parallel",
+    "docs:lint": "markdownlint-cli2 \"**/*.md\" \"#**/node_modules/**\" \"#generated/**\"",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "lint": "turbo run lint",
+    "test": "turbo run test",
+    "test:coverage": "turbo run test:coverage",
+    "typecheck": "turbo run typecheck",
+    "validate": "pnpm format:check && pnpm docs:lint && pnpm db:validate && pnpm lint && pnpm typecheck && pnpm test && pnpm build",
+    "db:generate": "prisma generate --schema database/schema.prisma",
+    "db:validate": "prisma validate --schema database/schema.prisma",
+    "db:format": "prisma format --schema database/schema.prisma",
+    "services:up": "docker compose -f docker/compose.yml up -d --wait",
+    "services:down": "docker compose -f docker/compose.yml down",
+    "services:logs": "docker compose -f docker/compose.yml logs -f"
+  },
+  "devDependencies": {
+    "@eslint/js": "9.39.1",
+    "@types/node": "24.10.1",
+    "eslint": "9.39.1",
+    "eslint-config-prettier": "10.1.8",
+    "eslint-plugin-react-hooks": "7.1.1",
+    "globals": "16.5.0",
+    "markdownlint-cli2": "0.23.2",
+    "prettier": "3.9.6",
+    "prisma": "7.9.1",
+    "turbo": "2.10.7",
+    "typescript": "5.9.3",
+    "typescript-eslint": "8.53.0"
+  }
+}

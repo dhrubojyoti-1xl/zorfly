@@ -3,8 +3,8 @@
 ## Decision
 
 Zorfly uses organization-scoped RBAC with resource and context attributes at
-decision time. Authentication is delegated to WorkOS; authorization remains a
-Zorfly responsibility.
+decision time. Zorfly owns sessions and authorization; authentication
+federation is delegated through standards-based adapters.
 
 This avoids encoding product authorization in identity-provider groups while
 still allowing enterprise administrators to map directory groups to baseline
@@ -90,8 +90,8 @@ Support static and dynamic separation of duty for sensitive workflows:
 
 ## Enterprise directory integration
 
-WorkOS directory and SSO groups may map to Zorfly roles. Zorfly remains the
-source of truth for:
+Directory and SSO groups from an approved identity adapter may map to Zorfly
+roles. Zorfly remains the source of truth for:
 
 - permission definitions;
 - role versions and risk;
@@ -104,7 +104,7 @@ downstream cleanup task fails.
 
 ## Service and agent identities
 
-Workloads use dedicated IAM roles and service principals. They never impersonate
+Workloads use dedicated short-lived service identities. They never impersonate
 human users implicitly.
 
 AI agents receive a delegated authority envelope containing:

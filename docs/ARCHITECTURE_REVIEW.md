@@ -4,16 +4,15 @@
 
 **Decision:** approved as an implementation foundation with mandatory gates.
 
-This repository is documentation-only. Approval means that the proposed
-boundaries and controls are suitable for beginning platform bootstrap. It does
-not certify an implemented system, production readiness, security compliance, or
-service-level attainment.
+The architecture foundation, database baseline, workspace, API/worker shells,
+and reference web application are implemented. Approval does not yet certify
+the complete SRS, production readiness, compliance, or service-level attainment.
 
 ## Review method
 
 The review examined every tracked file and evaluated the foundation against:
 
-- AWS Well-Architected and SaaS isolation principles;
+- cloud-agnostic well-architected and SaaS isolation principles;
 - zero-trust and least-privilege design;
 - NIST RBAC concepts;
 - current OpenAI image, Responses API, agent, webhook, and safety guidance;
@@ -23,7 +22,7 @@ The review examined every tracked file and evaluated the foundation against:
 ## Executive findings
 
 The initial foundation correctly chose a modular monolith, explicit tenant
-context, PostgreSQL row-level security, managed AWS infrastructure, asynchronous
+context, PostgreSQL row-level security, portable infrastructure, asynchronous
 work, OpenTelemetry, and enterprise identity. The review identified six
 foundation-level gaps and corrected them:
 
@@ -54,13 +53,13 @@ The repository now includes structural seams and decision documents for each.
 | 7 | Database scalability | Ready | Connection control, tenant-first keys, index policy, RLS, partition and shard triggers, read replicas, archival, online migration, and pooled-to-silo evolution are covered. |
 | 8 | API scalability | Ready | Stateless REST, OpenAPI, cursor pagination, idempotency, conditional requests, quotas, asynchronous operations, compatibility policy, and client-neutral contracts are defined. |
 | 9 | Microservice boundaries | Ready | The modular monolith remains intentional. Extraction criteria use data ownership, load/isolation profile, failure domain, team ownership, and deployment cadence—not technical layers. |
-| 10 | Future mobile compatibility | Ready | Mobile has a first-class folder; public API contracts are independent of Next.js; OAuth authorization code with PKCE, deep links, push tokens, offline synchronization, and version policy are planned. |
+| 10 | Future mobile compatibility | Ready | Mobile has a first-class folder; public API contracts are browser-independent; OAuth authorization code with PKCE, deep links, push tokens, offline synchronization, and version policy are planned. |
 | 11 | Future AI Agent compatibility | Ready | Agent runs are durable state machines with typed tools, authorization at execution time, human approval, budgets, recursion/turn limits, idempotency, tracing, and replay-safe events. |
-| 12 | Future OpenAI Image API integration | Ready | Single-shot generation/editing uses the Image API; conversational editing can use the Responses API. Provider adapters, async jobs, safety, provenance, S3 storage, quotas, and model/version metadata are specified. |
+| 12 | Future OpenAI Image API integration | Ready | Single-shot generation/editing uses the Image API; conversational editing can use the Responses API. Provider adapters, async jobs, safety, provenance, object storage, quotas, and model/version metadata are specified. |
 | 13 | SVG-based rendering architecture | Ready | SVG is produced from a validated internal scene graph by a deterministic renderer. Imported or model-supplied SVG is untrusted, sanitized, canonicalized, raster-previewed, and isolated. |
 | 14 | Claude API orchestration | Ready | Claude Messages and tool-use blocks are isolated behind a provider adapter with bounded tool loops, typed schemas, prompt caching, batch routing, request IDs, and provider-specific continuation state. |
-| 15 | Caching strategy | Ready | CDN, web, API, distributed Valkey, prompt caching, and client caches have ownership, tenant-safe keys, TTLs, invalidation, stampede protection, and data-class restrictions. |
-| 16 | Queue architecture | Ready | SQS/EventBridge, transactional outbox, idempotent consumers, FIFO only when required, dead-letter policies, tenant fairness, AI workload isolation, replay, and poison-message handling are defined. |
+| 15 | Caching strategy | Ready | CDN, web, API, distributed Redis, prompt caching, and client caches have ownership, tenant-safe keys, TTLs, invalidation, stampede protection, and data-class restrictions. |
+| 16 | Queue architecture | Ready | BullMQ, transactional outbox, idempotent consumers, ordering only when required, dead-letter policies, tenant fairness, AI workload isolation, replay, and poison-message handling are defined. |
 | 17 | Logging | Ready | Structured logs, correlation, safe tenant identifiers, audit separation, redaction, sampling, retention, access control, and provider request identifiers are specified. |
 | 18 | Monitoring | Ready | OpenTelemetry signals, golden signals, tenant-aware views, AI quality/cost/safety metrics, queue and cache health, SLOs, actionable alerts, synthetic probes, and runbooks are defined. |
 | 19 | Deployment | Ready | Immutable signed images, OIDC, policy-as-code, separated accounts, progressive deployment, schema compatibility, migration jobs, feature flags, rollback, and artifact promotion are specified. |

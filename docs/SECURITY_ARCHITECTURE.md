@@ -14,13 +14,13 @@
 
 ```mermaid
 flowchart LR
-    Internet["Untrusted clients and internet"] --> Edge["CloudFront, WAF, ALB"]
+    Internet["Untrusted clients and internet"] --> Edge["CDN, WAF, load balancer"]
     Edge --> Public["Web and public API"]
     Public --> Services["Private application services"]
-    Services --> Data["RDS, Valkey, S3"]
-    Services --> Queue["SQS and EventBridge"]
+    Services --> Data["PostgreSQL, Redis, object storage"]
+    Services --> Queue["BullMQ and outbox"]
     Services --> Vendors["Identity, AI, email, notification vendors"]
-    Admin["Federated operators"] --> Control["AWS and Zorfly control planes"]
+    Admin["Federated operators"] --> Control["Deployment and Zorfly control planes"]
     CI["GitHub Actions OIDC"] --> Control
 ```
 
@@ -30,15 +30,15 @@ risk.
 
 ## Identity and sessions
 
-- WorkOS handles end-user authentication, MFA, enterprise SSO, and directory
-  lifecycle.
+- Zorfly owns local sessions and authorization; standards-based adapters handle
+  enterprise SSO, MFA assertions, and directory lifecycle.
 - Zorfly validates issuer, audience, signature, nonce/state, expiry, and
   organization membership.
 - Browser sessions use secure, HTTP-only, same-site cookies with CSRF protection.
 - Mobile uses authorization code with PKCE and secure OS credential storage.
 - Session rotation, absolute and idle expiry, revocation, device/risk signals,
   and reauthentication are defined by action risk.
-- Workloads use short-lived IAM roles, not shared API keys.
+- Workloads use short-lived service identities, not shared API keys.
 - Support and break-glass access is time-bounded, approved, visible, and audited.
 
 Authorization is defined in `AUTHORIZATION_ARCHITECTURE.md`.

@@ -2,10 +2,8 @@
 
 ## Repository model
 
-Zorfly uses a monorepo so contracts, application changes, migrations, tests, and
-deployment definitions can evolve atomically. pnpm workspaces and Turborepo will
-be introduced during application bootstrap; they are not included in the
-foundation phase.
+Zorfly uses a pnpm/Turborepo monorepo so contracts, application changes,
+migrations, tests, and deployment definitions evolve atomically.
 
 ## Current structure
 
@@ -41,7 +39,7 @@ foundation phase.
 │   ├── mobile/
 │   └── web/
 ├── infrastructure/
-│   ├── cdk/
+│   ├── providers/
 │   ├── environments/
 │   └── policies/
 ├── packages/
@@ -69,8 +67,8 @@ foundation phase.
 └── SECURITY.md
 ```
 
-Empty implementation directories contain `.gitkeep` files only. No application
-code exists.
+Application packages are added incrementally and must keep these ownership
+boundaries.
 
 ## Planned structure
 
@@ -80,13 +78,13 @@ create these files now:
 ```text
 frontend/
 ├── web/
-│   ├── app/
+│   ├── src/
 │   ├── components/
 │   ├── features/
 │   ├── lib/
 │   └── tests/
 └── mobile/
-    ├── app/
+    ├── src/
     ├── features/
     ├── platform/
     └── tests/
@@ -112,7 +110,7 @@ packages/
 └── testing/
 
 infrastructure/
-├── cdk/
+├── providers/
 ├── environments/
 └── policies/
 ```
@@ -154,9 +152,11 @@ This directory is not a home for generic helpers or domain ownership.
 
 ### `infrastructure/`
 
-AWS CDK, environment topology, and policy-as-code. Environment files contain
-topology and identifiers only, never secrets. Infrastructure changes follow the
-same review, test, promotion, and rollback controls as application changes.
+Optional provider templates, environment topology, and policy-as-code.
+Application correctness cannot depend on a provider template. Environment files
+contain topology and identifiers only, never secrets. Infrastructure changes
+follow the same review, test, promotion, and rollback controls as application
+changes.
 
 ### `database/`
 

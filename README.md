@@ -1,10 +1,12 @@
 # Zorfly
 
-Zorfly is an enterprise SaaS platform being designed for secure, reliable, and
-scalable multi-tenant operation.
+Zorfly is a secure, cloud-agnostic enterprise SaaS for workforce quality
+assessment, learning, recruitment, recognition, analytics, and governed AI.
 
-> **Project status:** foundation and architecture planning. No application
-> features have been implemented.
+> **Project status:** the production data model and portable runtime foundation
+> are implemented. The official OneXL React product is integrated as the web
+> baseline; backend capabilities are being migrated from Mongoose to
+> Prisma/PostgreSQL module by module.
 
 ## Vision
 
@@ -24,28 +26,28 @@ premature microservices.
 - Strong contracts and type safety
 - Observable behavior in every environment
 - Automated, reversible delivery
-- Managed infrastructure where it reduces operational risk
+- Portable service contracts with managed options where they reduce risk
 - Architecture decisions recorded before they become accidental constraints
 - Simple designs that can evolve as evidence changes
 
-## Proposed architecture
+## Architecture
 
 Zorfly will begin as a modular monolith with independently deployable frontend,
 API, and worker processes:
 
-- **Web:** Next.js and React with TypeScript
-- **API:** NestJS on Fastify with TypeScript
+- **Web:** React, React Router, Vite, and TypeScript
+- **API:** Express 5 with TypeScript, Zod, and OpenAPI
 - **Data:** PostgreSQL with Prisma
-- **Identity:** WorkOS AuthKit for enterprise authentication, SSO, SCIM, and RBAC
-- **Object storage:** Amazon S3
-- **Distributed cache:** Amazon ElastiCache Serverless for Valkey
-- **Asynchronous work:** Amazon SQS and EventBridge
-- **Email:** Amazon SES
-- **Notifications:** Novu as the notification orchestration layer
+- **Identity:** Zorfly sessions with provider-neutral OIDC, SAML, and SCIM adapters
+- **Object storage:** S3-compatible adapter with MinIO for local development
+- **Distributed cache:** Redis-compatible service
+- **Asynchronous work:** BullMQ with a PostgreSQL transactional outbox
+- **Email:** SMTP baseline with optional provider adapters
+- **Notifications:** Zorfly-owned orchestration with channel adapters
 - **AI integration:** provider-neutral orchestration with governed OpenAI and
   Claude adapters
-- **Runtime:** Containers on Amazon ECS with AWS Fargate
-- **Delivery:** GitHub Actions using OpenID Connect to AWS
+- **Runtime:** Cloud-agnostic OCI containers and Docker Compose
+- **Delivery:** GitHub Actions with portable signed build artifacts
 
 See [Technology Stack](docs/TECH_STACK.md) for the complete recommendation and
 trade-offs.
@@ -59,15 +61,15 @@ trade-offs.
 ├── docker/         # Development and production container definitions
 ├── docs/           # Architecture, decisions, threat models, and runbooks
 ├── frontend/       # Independent web and future mobile clients
-├── infrastructure/ # AWS CDK, environment topology, and policy-as-code
+├── infrastructure/ # Optional provider templates and policy-as-code
 ├── packages/       # Platform-neutral contracts and shared capabilities
 ├── scripts/        # CI, development, and operations automation
 └── tests/          # Contract, E2E, security, resilience, performance, and AI evals
 ```
 
-The directories are intentionally empty until their implementation phases begin.
 See [Project Structure](docs/PROJECT_STRUCTURE.md) for ownership and dependency
-rules.
+rules and [OneXL Reference Compatibility](docs/REFERENCE_COMPATIBILITY.md) for
+the migration contract.
 
 ## Documentation
 
@@ -84,6 +86,7 @@ rules.
 - [Coding Standards](docs/CODING_STANDARDS.md)
 - [Project Structure](docs/PROJECT_STRUCTURE.md)
 - [Implementation Plan](docs/IMPLEMENTATION_PLAN.md)
+- [OneXL Reference Compatibility](docs/REFERENCE_COMPATIBILITY.md)
 - [Production Data Model](database/DATA_MODEL.md)
 - [Database ERD](database/ERD.md)
 - [AI Database Schema](database/AI_SCHEMA.md)
@@ -94,15 +97,30 @@ rules.
 
 ## Getting started
 
-At this stage, no runtime dependencies or application commands exist. To review
-the foundation:
+Requirements:
 
-1. Clone the repository.
-2. Read the architecture and technology decisions in `docs/`.
-3. Open a proposal or pull request for decisions that need refinement.
+- Node.js 24 Active LTS;
+- pnpm 11.18 through Corepack;
+- Docker Compose for the local PostgreSQL, Redis, MinIO, and Mailpit services.
 
-Application bootstrapping begins only after the foundation pull request is
-approved.
+From a clean clone:
+
+```bash
+corepack enable
+corepack prepare pnpm@11.18.0 --activate
+pnpm install --frozen-lockfile
+cp .env.example .env
+pnpm services:up
+pnpm db:generate
+pnpm dev
+```
+
+The web application runs at `http://localhost:5173`, the API at
+`http://localhost:5000/api/v1`, the MinIO console at `http://localhost:9001`,
+and the Mailpit inbox at `http://localhost:8025`.
+
+Run `pnpm validate` before every commit. It checks formatting, documentation,
+the Prisma schema, lint, types, tests, and production builds.
 
 ## Governance
 

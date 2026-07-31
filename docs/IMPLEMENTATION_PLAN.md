@@ -2,11 +2,9 @@
 
 ## Purpose
 
-This plan sequences foundation work so security, tenancy, delivery, and
-operations are designed before product features. Each phase ends with measurable
-exit criteria and an architecture review.
-
-No implementation in this plan is part of the repository-foundation change.
+This plan delivers the complete SRS in reference-compatible vertical slices.
+Each phase ends with measurable exit criteria, tests, documentation, and a
+verified commit.
 
 ## Phase 0 — Product and risk discovery
 
@@ -37,7 +35,7 @@ No implementation in this plan is part of the repository-foundation change.
 
 - Initialize pnpm workspaces and Turborepo.
 - Pin Node.js, pnpm, TypeScript, formatting, and linting versions.
-- Bootstrap empty Next.js web, NestJS API, and NestJS worker shells.
+- Bootstrap React/Vite web, Express API, and BullMQ worker shells.
 - Establish platform-neutral contract, AI, design-token, security,
   observability, and testing packages.
 - Add local PostgreSQL and service emulation through Docker.
@@ -50,13 +48,14 @@ No implementation in this plan is part of the repository-foundation change.
 - No secrets or machine-specific assumptions are required.
 - Dependency boundaries are enforced automatically.
 
-## Phase 2 — Cloud and delivery foundation
+## Phase 2 — Portable delivery foundation
 
 ### Outcomes
 
-- Define AWS infrastructure with CDK across isolated accounts.
-- Create network, KMS, ECR, ECS/Fargate, RDS, S3, Valkey, SQS, EventBridge, SES,
-  Secrets Manager, CloudWatch, WAF, and DNS baselines.
+- Define the Docker Compose reference topology and optional isolated provider
+  templates.
+- Establish OCI images, PostgreSQL, Redis, S3-compatible storage, SMTP,
+  secrets, telemetry, edge-proxy, and DNS contracts.
 - Establish GitHub Actions quality, security, build, signing, and promotion
   workflows using OIDC.
 - Implement rolling or blue/green deployments and automated rollback signals.
@@ -66,7 +65,7 @@ No implementation in this plan is part of the repository-foundation change.
 ### Exit criteria
 
 - A minimal container deploys through the same promotion path used later.
-- No long-lived AWS credentials exist in GitHub.
+- No long-lived production credentials exist in GitHub.
 - Infrastructure changes produce reviewable plans.
 - Restore and rollback procedures are tested.
 - Cost, security, and operational dashboards exist.
@@ -75,7 +74,8 @@ No implementation in this plan is part of the repository-foundation change.
 
 ### Outcomes
 
-- Integrate WorkOS environments and validated sessions.
+- Implement rotated Zorfly sessions and standards-based enterprise identity
+  adapters.
 - Implement organization membership, roles, permissions, and tenant context.
 - Implement versioned policy decisions, enforcement points, separation of duty,
   delegated agent authority, and prompt revocation.
@@ -101,11 +101,11 @@ No implementation in this plan is part of the repository-foundation change.
 - Define REST/OpenAPI conventions and generated contract workflow.
 - Establish client-neutral contracts, mobile compatibility policy, and OAuth
   authorization-code-with-PKCE design.
-- Add transactional outbox, idempotency, SQS consumers, retry policies, and
+- Add transactional outbox, idempotency, BullMQ consumers, retry policies, and
   dead-letter handling.
 - Add tenant-fair admission, queue concurrency, and distributed cache patterns.
 - Add S3 signed-upload and download patterns with malware-scanning hooks.
-- Integrate SES and Novu behind provider-neutral interfaces.
+- Integrate SMTP and notification channels behind provider-neutral interfaces.
 - Establish feature flags and safe configuration delivery.
 - Define privacy export and deletion foundations.
 
@@ -169,17 +169,25 @@ a product feature.
 - Recovery objectives are demonstrated in an exercise.
 - On-call ownership and escalation are documented before production traffic.
 
-## Phase 7 — First product capability
+## Phase 7 — SRS product capabilities
 
-The first feature begins only after Phases 0–6 have satisfied their applicable
-exit criteria. Feature discovery must define:
+Deliver in dependency order:
 
-- user outcome and acceptance criteria;
-- tenant, permission, audit, and privacy behavior;
-- API, data, UI, accessibility, and migration design;
-- observability and support requirements;
-- rollout, rollback, and success measures.
-- web, mobile, agent, generated-media, and offline implications where relevant.
+1. tenants, organization, RBAC, settings, audit, and platform administration;
+2. questions, assessments, assignments, schedules, attempts, scoring, review,
+   results, certificates, and proctoring;
+3. study, practice, learning content, paths, progress, and recommendations;
+4. recruitment drives, public candidate sessions, assessment, ranking, and
+   decisions;
+5. rewards, leaderboards, calendar, notifications, mail, billing, coupons,
+   referrals, dashboards, analytics, exports, and scheduled reports;
+6. AI generation, improvement, translation, evaluation, recommendations,
+   insights, assistant conversations, image generation, and SVG asset flows;
+7. the complete responsive, accessible React product surface.
+
+Each capability includes tenant and permission enforcement, audit behavior,
+API/OpenAPI contracts, migrations where required, unit/integration/E2E tests,
+telemetry, error states, and operational documentation.
 
 ## Phase 8 — Production readiness
 
@@ -229,10 +237,12 @@ Every phase considers:
 - documentation and ownership;
 - deployment and rollback.
 
-## Explicit non-goals for the foundation phase
+## Explicit constraints
 
-- No product features.
-- No framework-generated application code.
-- No cloud resources.
-- No credentials or environment configuration.
-- No production commitments without discovery and review.
+- Do not redesign the approved database baseline without an implementation
+  finding, migration impact assessment, and ADR.
+- Do not copy MongoDB-specific persistence or process-local scheduling from the
+  reference.
+- Do not add mandatory cloud-vendor dependencies.
+- Do not ship placeholder routes, fabricated data, disabled validation, or
+  unresolved `TODO` behavior.

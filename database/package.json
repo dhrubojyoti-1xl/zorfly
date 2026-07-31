@@ -1,0 +1,13 @@
+{
+  "name": "@zorfly/database",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "clean": "rm -rf ../generated/prisma",
+    "generate": "prisma generate --schema schema.prisma",
+    "validate": "prisma validate --schema schema.prisma"
+  },
+  "dependencies": {
+    "@prisma/client": "7.9.1"
+  }
+}

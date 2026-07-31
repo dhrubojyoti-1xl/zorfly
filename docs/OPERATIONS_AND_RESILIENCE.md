@@ -50,13 +50,13 @@ Rules:
 
 ## Monitoring and telemetry
 
-OpenTelemetry is the instrumentation boundary. CloudWatch is the initial managed
-backend.
+OpenTelemetry is the instrumentation boundary. Telemetry exports through OTLP
+to the operator's approved backend.
 
 ### Platform signals
 
 - traffic, errors, latency, saturation, and availability;
-- ECS task health, deployment state, CPU, memory, restarts, and throttling;
+- container health, deployment state, CPU, memory, restarts, and throttling;
 - database connections, replication lag, locks, storage, transactions, and slow
   queries;
 - queue age, depth, throughput, retries, in-flight messages, and dead letters;
@@ -95,11 +95,12 @@ monitoring.
 
 ### Environments
 
-- Separate AWS accounts for development, staging, production, security/log
-  archive, and shared services as scale requires.
+- Separate projects/accounts and credentials for development, staging,
+  production, security/log archive, and shared services as scale requires.
 - Production changes flow only through reviewed automation.
 - Humans use federated, time-bounded roles; no shared users or long-lived keys.
-- GitHub Actions obtains short-lived AWS credentials through OIDC.
+- GitHub Actions obtains short-lived deployment credentials through OIDC where
+  the selected platform supports it.
 
 ### Artifact flow
 
@@ -108,7 +109,7 @@ monitoring.
 2. Scan source, dependencies, secrets, licenses, infrastructure, and containers.
 3. Build once in a controlled environment.
 4. Generate SBOM, provenance, vulnerability report, and signature.
-5. Store immutable images in ECR and promote the same digest.
+5. Store immutable images in an OCI registry and promote the same digest.
 6. Produce an infrastructure change set and migration plan.
 7. Deploy to staging, run integration, security, resilience, and smoke tests.
 8. Progressively deploy to production with health and SLO gates.
@@ -116,8 +117,8 @@ monitoring.
 
 ### Runtime rollout
 
-- ECS services use rolling or blue/green deployment with minimum healthy
-  capacity across Availability Zones.
+- The selected container platform uses rolling or blue/green deployment with
+  minimum healthy capacity across failure zones.
 - Database migrations run as one-shot jobs before code that requires the new
   schema, using expand-and-contract compatibility.
 - Workers drain gracefully and stop accepting new leases before shutdown.
@@ -141,9 +142,9 @@ monitoring.
 - Restore tests validate data integrity, RLS, application compatibility, and
   measured RTO/RPO.
 
-### S3
+### Object storage
 
-- Versioning, KMS encryption, lifecycle policy, and protected deletion for
+- Versioning, managed encryption, lifecycle policy, and protected deletion for
   critical assets.
 - Cross-region replication for assets whose tier requires it.
 - Metadata and object recovery are tested together.
@@ -152,10 +153,10 @@ monitoring.
 
 ### Queues and events
 
-SQS queue state is not the source of truth and is not assumed to replicate
-cross-region.
+Redis/BullMQ queue state is not the source of truth and is not assumed to
+replicate across regions.
 
-- Recreate infrastructure from CDK.
+- Recreate infrastructure from versioned Compose or provider templates.
 - Rebuild unpublished work from the transactional outbox.
 - Persist durable job and agent-run state in PostgreSQL.
 - Archive/replay eligible events according to retention and privacy policy.
@@ -176,9 +177,10 @@ pre-provisioned or rapidly provisionable warm-standby region.
 
 Recovery-region readiness includes:
 
-- network, security, observability, ECR, ECS, and edge infrastructure;
-- replicated or restorable PostgreSQL and S3 state;
-- regional secrets and KMS strategy;
+- network, security, observability, OCI registry, container, and edge
+  infrastructure;
+- replicated or restorable PostgreSQL and object-storage state;
+- regional secrets and encryption-key strategy;
 - provider callback and webhook endpoints;
 - DNS health checks and low-enough TTLs;
 - capacity quotas verified in advance;
@@ -194,7 +196,7 @@ traffic, and availability requirements justify its cost and complexity.
    provider-specific.
 3. Select a known-good recovery point and record expected data loss.
 4. Restore/promote PostgreSQL and validate integrity and tenant policies.
-5. Restore or verify asset metadata and S3 availability.
+5. Restore or verify asset metadata and object-storage availability.
 6. deploy the exact approved application and infrastructure artifacts.
 7. rotate or activate regional secrets and validate workload identities.
 8. enable API in restricted mode; then workers and external side effects.
@@ -209,13 +211,14 @@ systems.
 
 ## External provider resilience
 
-- WorkOS outage: preserve valid sessions only within approved token policy; block
-  new login or provisioning safely; never bypass authentication.
+- Identity-adapter outage: preserve valid Zorfly sessions only within approved
+  policy; block affected new federation or provisioning safely; never bypass
+  authentication.
 - OpenAI or Claude outage: circuit-break provider, queue eligible asynchronous
   work, use an approved fallback only when policy/evaluations allow, or degrade
   the AI capability explicitly.
-- SES/Novu outage: retain notification intent, retry safely, surface delay, and
-  preserve critical alternate channels where required.
+- Email/notification adapter outage: retain intent, retry safely, surface delay,
+  and preserve critical alternate channels where required.
 - Regional vendor limitation: route only if tenant data policy permits the
   alternate region/provider.
 
@@ -223,7 +226,7 @@ Provider outages must not corrupt core transactional state.
 
 ## Exercises and evidence
 
-- Quarterly restore of PostgreSQL and critical S3 metadata/assets.
+- Quarterly restore of PostgreSQL and critical object metadata/assets.
 - Semiannual regional recovery exercise before scale requires more frequent
   testing.
 - Annual credential-compromise and destructive-change scenario.
@@ -233,7 +236,7 @@ Provider outages must not corrupt core transactional state.
 
 ## Official references
 
-- [AWS Well-Architected SaaS Lens](https://docs.aws.amazon.com/wellarchitected/latest/saas-lens/saas-lens.html)
-- [AWS SaaS isolation mindset](https://docs.aws.amazon.com/wellarchitected/latest/saas-lens/isolation-mindset.html)
-- [Amazon RDS cross-region read replicas](https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/USER_ReadRepl.XRgn.html)
-- [GitHub Actions OIDC for AWS](https://docs.github.com/en/actions/how-tos/secure-your-work/security-harden-deployments/oidc-in-aws)
+- [OpenTelemetry documentation](https://opentelemetry.io/docs/)
+- [PostgreSQL continuous archiving and PITR](https://www.postgresql.org/docs/current/continuous-archiving.html)
+- [Docker Compose production guidance](https://docs.docker.com/compose/how-tos/production/)
+- [GitHub Actions security hardening](https://docs.github.com/en/actions/security-for-github-actions/security-guides/security-hardening-for-github-actions)

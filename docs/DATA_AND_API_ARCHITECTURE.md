@@ -35,9 +35,9 @@ explicit access paths.
 
 ### Initial
 
-- Amazon RDS PostgreSQL Multi-AZ in private subnets.
-- Connection pooling and bounded per-process pools; evaluate RDS Proxy or
-  PgBouncer based on workload and transaction semantics.
+- PostgreSQL 17 with redundant production nodes in private networks.
+- Connection pooling and bounded per-process pools; use PgBouncer or the
+  selected platform's compatible pooler based on transaction semantics.
 - Query timeouts, lock timeouts, slow-query capture, and connection budgets.
 - Tenant-aware indexes and query-plan review.
 - Point-in-time recovery and encrypted snapshots.
@@ -82,7 +82,7 @@ governed pipeline.
 
 Zorfly exposes a client-neutral REST/JSON API described by OpenAPI. The web
 application may have server-side adapters, but product capability cannot exist
-only in Next.js Server Actions or browser-specific endpoints.
+only in browser-specific endpoints or client-side state.
 
 This boundary supports web, mobile, integrations, and future agent clients.
 
@@ -134,10 +134,10 @@ authorization.
 | Layer | Purpose | Rules |
 | --- | --- | --- |
 | Browser/mobile | Static assets and explicitly cacheable API reads | Honor tenant/user scope, ETags, offline sensitivity, and logout clearing. |
-| CloudFront | Immutable assets, public content, safe edge responses | Never cache authenticated responses without an explicit reviewed key and policy. |
-| Next.js | Render and fetch caching | Tenant/user identity must participate in scope; private pages default to no shared cache. |
+| CDN/edge | Immutable assets, public content, safe edge responses | Never cache authenticated responses without an explicit reviewed key and policy. |
+| React client | Query and representation caching | Tenant/user identity must participate in scope; private data is cleared on company switch and logout. |
 | API process | Tiny immutable reference data | No correctness-critical mutable state. |
-| ElastiCache Serverless for Valkey | Distributed cache, rate-limit counters, short-lived coordination | Tenant-prefixed keys, TTL on every entry, encryption, no source-of-truth data. |
+| Redis-compatible service | Distributed cache, rate-limit counters, queues, and short-lived coordination | Tenant-prefixed keys, TTL on cache entries, encryption, no source-of-truth data. |
 | Provider prompt cache | Stable AI prompt/tool prefixes | Governed by AI data policy; measured separately from application cache. |
 
 Cache key composition includes environment, schema version, tenant, resource,
@@ -159,27 +159,28 @@ of truth or failing closed for security controls.
 
 ## Queue and event architecture
 
-### SQS
+### BullMQ
 
-- Standard queues are default.
-- FIFO queues are used only when a documented business invariant requires
-  ordering or deduplication within a message group.
+- Independent BullMQ queues are configured by workload class.
+- Ordering is used only when a documented invariant requires serialization by a
+  stable group key.
 - Separate queues by workload isolation and operational policy, not by every
   event type.
 - AI image, interactive agent, bulk AI, email, notification, export, and
   maintenance work receive distinct concurrency and cost controls where needed.
 
-### EventBridge
+### Domain-event publication
 
-EventBridge routes domain events to multiple consumers and external integrations.
-Events are immutable facts, not remote procedure calls.
+The PostgreSQL outbox routes immutable domain facts to BullMQ consumers and
+external integration adapters. Events are not remote procedure calls.
 
 ### Delivery guarantees
 
 - Transactional outbox connects committed PostgreSQL state to publication.
 - Consumers are idempotent because delivery is at least once.
 - Messages contain identifiers and minimal classified metadata.
-- Payloads too large or sensitive for the queue use an encrypted S3 claim-check.
+- Payloads too large or sensitive for the queue use an encrypted object-storage
+  claim-check.
 - Retry policy distinguishes transient, throttling, permanent, and policy errors.
 - Dead-letter queues have alarms, ownership, triage SLA, and replay tooling.
 - Replay preserves original identity, tenant, schema, correlation, and

@@ -22,8 +22,8 @@ Every asset has:
   when AI-generated;
 - retention, legal hold, deletion, and publication state.
 
-Binary content lives in S3. PostgreSQL stores metadata and state, not large
-blobs.
+Binary content lives in S3-compatible object storage. PostgreSQL stores metadata
+and state, not large blobs.
 
 ## Storage zones
 
@@ -34,7 +34,7 @@ flowchart LR
     Validate --> Normalize["Normalize and strip metadata"]
     Normalize --> Approved["Immutable approved asset"]
     Approved --> Derivatives["Versioned derivatives"]
-    Derivatives --> Delivery["CloudFront or signed URL"]
+    Derivatives --> Delivery["CDN or signed URL"]
     Validate --> Rejected["Rejected and retained by policy"]
 ```
 

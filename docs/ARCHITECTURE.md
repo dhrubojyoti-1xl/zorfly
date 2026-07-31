@@ -35,18 +35,18 @@ flowchart LR
     Admin["Customer administrator"] --> Edge
     Edge --> Web["Zorfly web"]
     Edge --> API["Zorfly API"]
-    API --> Identity["WorkOS"]
+    API --> Identity["OIDC, SAML, and SCIM adapters"]
     API --> DB[("PostgreSQL")]
-    API --> Objects[("Amazon S3")]
-    API --> Queue["SQS and EventBridge"]
-    API --> Cache[("Valkey cache")]
+    API --> Objects[("S3-compatible storage")]
+    API --> Queue["BullMQ and transactional outbox"]
+    API --> Cache[("Redis-compatible cache")]
     API --> AI["AI control plane"]
     Queue --> Worker["Zorfly worker"]
     AI --> Models["OpenAI, Claude, and approved providers"]
     AI --> Tools["Authorized tool gateway"]
     Worker --> DB
-    Worker --> Email["Amazon SES"]
-    Worker --> Notify["Novu"]
+    Worker --> Email["SMTP or email adapter"]
+    Worker --> Notify["Notification channel adapters"]
     API --> Telemetry["OpenTelemetry pipeline"]
     Web --> Telemetry
     Worker --> Telemetry
@@ -73,7 +73,7 @@ Service extraction requires measurable evidence and an ADR.
 
 ### Deployable units
 
-- **Web:** server-rendered frontend and browser assets.
+- **Web:** React single-page application and static browser assets.
 - **API:** stateless synchronous HTTP API.
 - **Worker:** asynchronous command and event consumers.
 - **Migration job:** one-shot, forward-only database migrations.
@@ -115,8 +115,8 @@ operations. See [Data and API Architecture](DATA_AND_API_ARCHITECTURE.md) and
 
 1. The edge terminates TLS, applies WAF and rate-limiting policies, and forwards
    an immutable request identifier.
-2. WorkOS authenticates the user. The API validates token issuer, audience,
-   signature, expiry, and organization membership.
+2. Zorfly validates its rotated session, or an identity adapter validates the
+   external issuer, audience, signature, expiry, and federation assertion.
 3. The authorization layer resolves Zorfly permissions and tenant context.
 4. The application layer validates the command or query and invokes a domain
    module.
@@ -141,8 +141,8 @@ operations. See [Data and API Architecture](DATA_AND_API_ARCHITECTURE.md) and
 GraphQL or additional protocols require a demonstrated use case and an ADR.
 
 The same public capability contracts serve web, future mobile, integrations, and
-agent clients. Product capability must not exist only behind Next.js-specific
-actions or browser cookies.
+agent clients. Product capability must not exist only behind browser-specific
+state or cookies.
 
 ## Asynchronous processing
 
@@ -161,16 +161,18 @@ actions or browser cookies.
 
 ## Caching
 
-Caching is layered across CloudFront, clients, Next.js, and Valkey. Every mutable
-entry has an owner, TTL, tenant-safe key, invalidation strategy, and source of
-truth. Cache failure must not weaken authorization or correctness. Full rules
-are defined in [Data and API Architecture](DATA_AND_API_ARCHITECTURE.md).
+Caching is layered across the selected CDN/edge, browser clients, API, and
+Redis-compatible service. Every mutable entry has an owner, TTL, tenant-safe
+key, invalidation strategy, and source of truth. Cache failure must not weaken
+authorization or correctness. Full rules are defined in
+[Data and API Architecture](DATA_AND_API_ARCHITECTURE.md).
 
 ## Security architecture
 
 ### Identity and access
 
-- WorkOS provides authentication, enterprise SSO, MFA, and directory sync.
+- Zorfly owns local sessions and authorization; adapters provide enterprise
+  SSO, MFA assertions, and directory sync.
 - Zorfly enforces authorization at the API and domain boundaries.
 - Deny-by-default permissions are attached to organization memberships.
 - Privileged operations require explicit permissions and generate audit events.
@@ -183,9 +185,10 @@ separation-of-duty controls, and delegated agent authority are defined in
 
 ### Data protection
 
-- TLS 1.2 or later in transit and AWS-managed encryption at rest.
-- Secrets stored in AWS Secrets Manager, never environment files in source
-  control.
+- TLS 1.2 or later in transit and provider-managed or self-managed encryption at
+  rest.
+- Secrets stored in the deployment platform's secret manager, never environment
+  files in source control.
 - Sensitive fields classified before implementation and minimized by default.
 - Object access uses short-lived signed URLs and private buckets.
 - Backups are encrypted, access-controlled, tested, and covered by retention
@@ -214,7 +217,7 @@ launch. The platform will use:
 - point-in-time database recovery and tested restore procedures;
 - dead-letter queues and replay runbooks;
 - zero-downtime, backward-compatible migrations;
-- separate development, staging, and production AWS accounts.
+- separate development, staging, and production environments and credentials.
 
 Provisional service tiers, deployment controls, cross-region recovery, failover
 order, provider degradation, and exercise requirements are defined in
