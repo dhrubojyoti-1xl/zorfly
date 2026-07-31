@@ -25,7 +25,12 @@ export const generateQuestionsSchema = z.object({
 });
 export type GenerateQuestionsInput = z.output<typeof generateQuestionsSchema>;
 
+const questionWithHistory = z.intersection(
+  z.object({ historyId: z.string().trim().min(1).max(60).optional() }),
+  questionSchema
+);
+
 export const saveQuestionsSchema = z.object({
-  questions: z.array(questionSchema).min(1, 'No questions to save.').max(50)
+  questions: z.array(questionWithHistory).min(1, 'No questions to save.').max(50)
 });
 export type SaveQuestionsInput = z.output<typeof saveQuestionsSchema>;

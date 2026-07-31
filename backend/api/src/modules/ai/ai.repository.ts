@@ -486,6 +486,87 @@ export async function recordCostEntry(
   });
 }
 
+export interface GenerationDraftRecord {
+  request: Prisma.InputJsonValue;
+  validationResult: Prisma.InputJsonValue;
+}
+
+export interface GenerationHistoryRef {
+  historyId: string;
+}
+
+/** Records one QuestionGenerationHistory row per raw AI draft item, in insertion order, in a single transaction. */
+export async function recordGenerationDrafts(
+  prisma: ZorflyPrismaClient,
+  tenantId: string,
+  executionId: bigint,
+  drafts: readonly GenerationDraftRecord[]
+): Promise<GenerationHistoryRef[]> {
+  if (drafts.length === 0) return [];
+  const rows = await prisma.$transaction(
+    drafts.map((draft) =>
+      prisma.questionGenerationHistory.create({
+        data: {
+          tenantId,
+          executionId,
+          request: draft.request,
+          validationResult: draft.validationResult
+        },
+        select: { id: true }
+      })
+    )
+  );
+  return rows.map((row) => ({ historyId: row.id.toString() }));
+}
+
+/** Loads the QuestionGenerationHistory rows previously recorded for an execution, in original order (used for idempotent replays). */
+export async function loadGenerationDrafts(
+  prisma: ZorflyPrismaClient,
+  tenantId: string,
+  executionId: bigint
+): Promise<GenerationHistoryRef[]> {
+  const rows = await prisma.questionGenerationHistory.findMany({
+    where: { tenantId, executionId },
+    orderBy: { id: 'asc' },
+    select: { id: true }
+  });
+  return rows.map((row) => ({ historyId: row.id.toString() }));
+}
+
+export interface LinkGenerationDecisionInput {
+  tenantId: string;
+  historyId: string;
+  generatedQuestionVersionId: string;
+  decidedById: string;
+}
+
+/**
+ * Tenant-scoped and idempotent: links a saved question version back to the AI
+ * draft that produced it. No-ops (without throwing) for a malformed,
+ * cross-tenant, unknown, or already-decided history id, since this is a
+ * best-effort provenance link and must never block saving the question.
+ */
+export async function linkGenerationDecision(
+  transaction: Prisma.TransactionClient,
+  input: LinkGenerationDecisionInput
+): Promise<void> {
+  let id: bigint;
+  try {
+    id = BigInt(input.historyId);
+  } catch {
+    return;
+  }
+  await transaction.questionGenerationHistory.updateMany({
+    where: { id, tenantId: input.tenantId, humanDecision: null },
+    data: {
+      humanDecision: 'accepted',
+      generatedQuestionVersionId: input.generatedQuestionVersionId,
+      decidedById: input.decidedById,
+      decidedAt: new Date()
+    }
+  });
+}
+
 export interface AppendLogInput {
   tenantId: string;
   executionId: bigint;

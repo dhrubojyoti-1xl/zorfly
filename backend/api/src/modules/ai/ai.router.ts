@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { Router, type Request } from 'express';
-import { AIExecutionPurpose, type ZorflyPrismaClient } from '@zorfly/database';
+import { AIExecutionPurpose, type Prisma, type ZorflyPrismaClient } from '@zorfly/database';
 import { ApiError } from '../../platform/api-error.js';
 import { validate } from '../../platform/validate.js';
 import { createQuestion } from '../assessment/questions.router.js';
@@ -14,7 +14,13 @@ import {
   type GenerateQuestionsInput
 } from './ai.validation.js';
 import type { AiExecutionService } from './ai.service.js';
-import { resolveExecutionPlan } from './ai.repository.js';
+import {
+  linkGenerationDecision,
+  loadGenerationDrafts,
+  recordGenerationDrafts,
+  resolveExecutionPlan,
+  type GenerationHistoryRef
+} from './ai.repository.js';
 import {
   aiQuestionTypes,
   buildQuestionGenerationPrompt,
@@ -114,13 +120,35 @@ export function createAiRouter(
         });
 
         const allowed: readonly AiQuestionType[] = body.types?.length ? body.types : ['mcq'];
-        const drafts: QuestionDraft[] = result.output.questions
-          .map((item) => draftToQuestionCore(item))
-          .filter((draft): draft is QuestionDraft => draft !== null && allowed.includes(draft.type))
-          .map((draft) => ({
-            ...draft,
-            explanation: draft.explanation
-          }));
+        const rawItems = result.output.questions;
+        const parsed = rawItems.map((item) => draftToQuestionCore(item));
+
+        const historyRows: GenerationHistoryRef[] = result.reused
+          ? await loadGenerationDrafts(prisma, auth.tenantId, result.executionId)
+          : await recordGenerationDrafts(
+              prisma,
+              auth.tenantId,
+              result.executionId,
+              parsed.map((draft) => ({
+                request: {
+                  topic: body.topic,
+                  difficulty: body.difficulty,
+                  count: body.count,
+                  types: body.types ?? null,
+                  instructions: body.instructions ?? null
+                } as Prisma.InputJsonValue,
+                validationResult: (draft
+                  ? { valid: true, type: draft.type }
+                  : { valid: false }) as Prisma.InputJsonValue
+              }))
+            );
+
+        const drafts: Array<QuestionDraft & { historyId: string }> = [];
+        parsed.forEach((draft, index) => {
+          if (draft && allowed.includes(draft.type)) {
+            drafts.push({ ...draft, historyId: historyRows[index]?.historyId ?? '' });
+          }
+        });
 
         response.json({
           success: true,
@@ -135,7 +163,7 @@ export function createAiRouter(
               trainingLink: '',
               tags: ['ai-generated']
             })),
-            generated: result.output.questions.length,
+            generated: rawItems.length,
             valid: drafts.length,
             message: `${drafts.length} question(s) generated.`
           }
@@ -154,7 +182,21 @@ export function createAiRouter(
       const errors: Array<{ index: number; message: string }> = [];
       for (const [index, question] of body.questions.entries()) {
         try {
-          const record = await createQuestion(prisma, auth.tenantId, auth.userId, question);
+          const record = await createQuestion(
+            prisma,
+            auth.tenantId,
+            auth.userId,
+            question,
+            async (transaction, _createdQuestion, version) => {
+              if (!question.historyId) return;
+              await linkGenerationDecision(transaction, {
+                tenantId: auth.tenantId,
+                historyId: question.historyId,
+                generatedQuestionVersionId: version.id,
+                decidedById: auth.userId
+              });
+            }
+          );
           created.push(record.id);
         } catch (error) {
           errors.push({

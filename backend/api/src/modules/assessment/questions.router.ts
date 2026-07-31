@@ -244,7 +244,12 @@ export async function createQuestion(
   prisma: ZorflyPrismaClient,
   tenantId: string,
   userId: string,
-  input: QuestionInput
+  input: QuestionInput,
+  onCreated?: (
+    transaction: Prisma.TransactionClient,
+    question: { id: string },
+    version: { id: string }
+  ) => Promise<void>
 ) {
   const references = await resolveReferences(prisma, tenantId, input);
   return prisma.$transaction(async (transaction) => {
@@ -297,7 +302,10 @@ export async function createQuestion(
       data: { currentVersionId: version.id }
     });
     await syncTags(transaction, tenantId, question.id, userId, input.tags);
-    return question;
+    if (onCreated) {
+      await onCreated(transaction, question, version);
+    }
+    return { ...question, currentVersionId: version.id };
   });
 }
 

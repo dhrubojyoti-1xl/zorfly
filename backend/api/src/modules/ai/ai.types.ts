@@ -18,6 +18,7 @@ export interface GenerateExecutionInput<TOutput = unknown> {
 }
 
 export interface GenerateExecutionResult<TOutput = unknown> {
+  executionId: bigint;
   executionPublicId: string;
   output: TOutput;
   providerKey: string;
