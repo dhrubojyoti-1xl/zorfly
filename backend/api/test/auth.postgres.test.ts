@@ -402,6 +402,86 @@ integration('Prisma/PostgreSQL authentication repository', () => {
     expect(exportResponse.headers['content-type']).toContain('text/csv');
     expect(exportResponse.text).toContain(questionTitle);
 
+    const testResponse = await request(app)
+      .post('/api/v1/tests')
+      .set('authorization', authorization)
+      .send({
+        title: `Platform Readiness ${randomUUID()}`,
+        description: 'A versioned fixed assessment.',
+        categoryId: categoryBody.data.id,
+        subCategoryId: subCategoryBody.data.id,
+        difficulty: 'senior',
+        mode: 'fixed',
+        questionIds: [questionBody.data.id],
+        randomConfig: null,
+        settings: {
+          passingPercentage: 60,
+          timeLimitMin: 30,
+          timeLimitPerQuestionSec: 0,
+          attemptsAllowed: 2,
+          negativeMarking: false,
+          shuffleQuestions: true,
+          shuffleOptions: true,
+          antiCheat: {
+            fullScreen: true,
+            tabSwitchDetection: true,
+            tabSwitchLimit: 3,
+            disableCopyPaste: true,
+            webcamCapture: false
+          }
+        }
+      })
+      .expect(201);
+    const testBody = testResponse.body as { data: { id: string } };
+    const testDetailResponse = await request(app)
+      .get(`/api/v1/tests/${testBody.data.id}`)
+      .set('authorization', authorization)
+      .expect(200);
+    const testDetailBody = testDetailResponse.body as {
+      data: {
+        state: string;
+        mode: string;
+        questionIds: Array<{ _id: string }>;
+        settings: { passingPercentage: number };
+      };
+    };
+    expect(testDetailBody.data).toMatchObject({
+      state: 'draft',
+      mode: 'fixed',
+      settings: { passingPercentage: 60 }
+    });
+    expect(testDetailBody.data.questionIds[0]?._id).toBe(questionBody.data.id);
+
+    const previewResponse = await request(app)
+      .get(`/api/v1/tests/${testBody.data.id}/preview`)
+      .set('authorization', authorization)
+      .expect(200);
+    const previewBody = previewResponse.body as {
+      data: { questions: Array<{ content: Record<string, unknown> }> };
+    };
+    expect(previewBody.data.questions[0]?.content).not.toHaveProperty('correctAnswer');
+
+    await request(app)
+      .post(`/api/v1/tests/${testBody.data.id}/publish`)
+      .set('authorization', authorization)
+      .expect(200);
+    const published = await prisma.assessmentDefinition.findUniqueOrThrow({
+      where: { id: testBody.data.id },
+      include: { currentVersion: true }
+    });
+    expect(published.status).toBe('PUBLISHED');
+    expect(Number(published.currentVersion?.totalMarks)).toBe(5);
+    expect(Number(published.currentVersion?.passingMarks)).toBe(3);
+    await request(app)
+      .put(`/api/v1/tests/${testBody.data.id}`)
+      .set('authorization', authorization)
+      .send({
+        title: 'Published tests are immutable',
+        mode: 'fixed',
+        questionIds: [questionBody.data.id]
+      })
+      .expect(422);
+
     await request(app)
       .delete(`/api/v1/employees/${employeeBody.data.id}`)
       .set('authorization', authorization)

@@ -144,6 +144,9 @@ The following compatibility slices are implemented on PostgreSQL:
 - category and subcategory administration plus the question bank, including all
   nine interaction schemas, CSV exchange, normalized options and tags, and
   immutable question-version history.
+- fixed and random test authoring, candidate-safe preview, plan limits, draft
+  mutability, immutable publication snapshots, lifecycle transitions, and
+  Team Leader authoring scope.
 
 Organization writes are transactional where multiple records are involved.
 References are resolved inside the authenticated tenant, employee removal is a
