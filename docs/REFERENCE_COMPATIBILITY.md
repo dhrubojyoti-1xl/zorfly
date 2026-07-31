@@ -127,3 +127,22 @@ The implementation sequence is:
 Every slice includes authorization, tenant isolation, audit behavior,
 observability, tests, API documentation, migrations if required, and a verified
 commit.
+
+## Migration ledger
+
+The following compatibility slices are implemented on PostgreSQL:
+
+- all 11 reference authentication and company-selection routes, using Argon2id,
+  rotated opaque refresh sessions, replay rejection, and auditable reset tokens;
+- company profile and branding routes, including plan entitlement enforcement;
+- built-in role overrides, custom role lifecycle, assignable-role discovery,
+  and permission resolution;
+- department, branch, and team listing and management, including team-leader
+  scope and branch-aware teams;
+- employee listing, creation, update, team assignment, and removal, mapped to
+  users, tenant memberships, membership roles, and historical team memberships.
+
+Organization writes are transactional where multiple records are involved.
+References are resolved inside the authenticated tenant, employee removal is a
+recoverable tenant-membership termination, and PostgreSQL integration tests
+cover the primary lifecycle and reject representative cross-tenant references.

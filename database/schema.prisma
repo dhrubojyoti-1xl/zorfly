@@ -845,6 +845,7 @@ model Branch {
   rowVersion  Int                @default(1)
   tenant      Tenant             @relation(fields: [tenantId], references: [id], onDelete: Restrict)
   departments Department[]
+  teams       Team[]
   memberships TenantMembership[]
 
   @@unique([tenantId, code])
@@ -884,6 +885,7 @@ model Team {
   id           String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   tenantId     String           @db.Uuid
   departmentId String?          @db.Uuid
+  branchId     String?          @db.Uuid
   code         String           @db.VarChar(40)
   name         String           @db.VarChar(160)
   status       RecordStatus     @default(ACTIVE)
@@ -896,10 +898,12 @@ model Team {
   rowVersion   Int              @default(1)
   tenant       Tenant           @relation(fields: [tenantId], references: [id], onDelete: Restrict)
   department   Department?      @relation(fields: [departmentId], references: [id], onDelete: Restrict)
+  branch       Branch?          @relation(fields: [branchId], references: [id], onDelete: Restrict)
   memberships  TeamMembership[]
 
   @@unique([tenantId, code])
   @@index([tenantId, departmentId, status, deletedAt])
+  @@index([tenantId, branchId, status, deletedAt])
   @@schema("core")
 }
 

@@ -15,7 +15,7 @@
     "docs:lint": "markdownlint-cli2 \"**/*.md\" \"#**/node_modules/**\" \"#generated/**\"",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "lint": "turbo run lint",
+    "lint": "pnpm db:generate && turbo run lint",
     "test": "turbo run test",
     "test:coverage": "turbo run test:coverage",
     "typecheck": "turbo run typecheck",

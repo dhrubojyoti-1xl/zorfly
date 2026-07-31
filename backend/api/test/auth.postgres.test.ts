@@ -148,5 +148,127 @@ integration('Prisma/PostgreSQL authentication repository', () => {
       logoUrl: '/uploads/logo.png',
       primaryColour: '#1d4ed8'
     });
-  }, 20_000);
+
+    const departmentResponse = await request(app)
+      .post('/api/v1/departments')
+      .set('authorization', authorization)
+      .send({ name: 'Engineering' })
+      .expect(201);
+    const departmentBody = departmentResponse.body as {
+      success: boolean;
+      data: { id: string; name: string };
+    };
+    expect(departmentBody.data.name).toBe('Engineering');
+
+    const branchResponse = await request(app)
+      .post('/api/v1/branches')
+      .set('authorization', authorization)
+      .send({ name: 'Kolkata' })
+      .expect(201);
+    const branchBody = branchResponse.body as {
+      success: boolean;
+      data: { id: string; name: string };
+    };
+    expect(branchBody.data.name).toBe('Kolkata');
+
+    const employeeEmail = `employee-${randomUUID()}@example.com`;
+    const employeeResponse = await request(app)
+      .post('/api/v1/employees')
+      .set('authorization', authorization)
+      .send({
+        fullName: 'Team Leader',
+        email: employeeEmail,
+        contactNumber: '9876543210',
+        role: 'team_leader',
+        departmentId: departmentBody.data.id,
+        branchId: branchBody.data.id,
+        difficultyLevel: 'team_lead'
+      })
+      .expect(201);
+    const employeeBody = employeeResponse.body as {
+      success: boolean;
+      data: {
+        id: string;
+        userId?: string;
+        email: string;
+        temporaryPassword: string | null;
+      };
+    };
+    expect(employeeBody.data.email).toBe(employeeEmail);
+    expect(employeeBody.data.temporaryPassword).toMatch(/^Zf@/);
+
+    const createdMembership = await prisma.tenantMembership.findUniqueOrThrow({
+      where: { id: employeeBody.data.id }
+    });
+    const teamResponse = await request(app)
+      .post('/api/v1/teams')
+      .set('authorization', authorization)
+      .send({
+        name: 'Platform',
+        departmentId: departmentBody.data.id,
+        branchId: branchBody.data.id,
+        leaderUserId: createdMembership.userId
+      })
+      .expect(201);
+    const teamBody = teamResponse.body as {
+      success: boolean;
+      data: { id: string; name: string };
+    };
+    expect(teamBody.data.name).toBe('Platform');
+
+    await request(app)
+      .patch(`/api/v1/employees/${employeeBody.data.id}`)
+      .set('authorization', authorization)
+      .send({ teamId: teamBody.data.id, difficultyLevel: 'manager' })
+      .expect(200);
+    const employeeListResponse = await request(app)
+      .get('/api/v1/employees')
+      .query({ search: employeeEmail })
+      .set('authorization', authorization)
+      .expect(200);
+    const employeeListBody = employeeListResponse.body as {
+      success: boolean;
+      data: {
+        rows: Array<{
+          id: string;
+          teamId: string | null;
+          role: string;
+          difficultyLevel: string;
+        }>;
+        totalCount: number;
+      };
+    };
+    expect(employeeListBody.data.totalCount).toBe(1);
+    expect(employeeListBody.data.rows[0]).toMatchObject({
+      id: employeeBody.data.id,
+      teamId: teamBody.data.id,
+      role: 'team_leader',
+      difficultyLevel: 'manager'
+    });
+
+    if (!second.company) throw new Error('Expected the second company session.');
+    const secondBranchResponse = await request(app)
+      .post('/api/v1/branches')
+      .set('authorization', `Bearer ${second.accessToken}`)
+      .send({ name: 'Foreign Branch' })
+      .expect(201);
+    const secondBranchBody = secondBranchResponse.body as {
+      data: { id: string };
+    };
+    await request(app)
+      .post('/api/v1/teams')
+      .set('authorization', authorization)
+      .send({ name: 'Cross Tenant Team', branchId: secondBranchBody.data.id })
+      .expect(422);
+
+    await request(app)
+      .delete(`/api/v1/employees/${employeeBody.data.id}`)
+      .set('authorization', authorization)
+      .expect(200);
+    const removedMembership = await prisma.tenantMembership.findUniqueOrThrow({
+      where: { id: employeeBody.data.id }
+    });
+    expect(removedMembership.status).toBe('TERMINATED');
+    expect(removedMembership.deletedAt).not.toBeNull();
+  }, 30_000);
 });

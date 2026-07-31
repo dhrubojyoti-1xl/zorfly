@@ -263,6 +263,10 @@ export class AuthService {
     await this.options.repository.audit(event, context);
   }
 
+  public sendNotification(message: Parameters<AuthMailer['send']>[0]): void {
+    this.sendMail(message);
+  }
+
   public async updateProfile(userId: string, input: UpdateProfileInput, context: RequestContext) {
     const user = await this.options.repository.updateProfile(userId, {
       fullName: input.fullName,

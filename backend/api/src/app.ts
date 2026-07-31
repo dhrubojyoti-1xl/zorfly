@@ -14,6 +14,12 @@ import {
   createCompanyRouter,
   createRoleRouter
 } from './modules/organization/organization.router.js';
+import {
+  createBranchRouter,
+  createDepartmentRouter,
+  createTeamRouter
+} from './modules/organization/org-units.router.js';
+import { createEmployeeRouter } from './modules/organization/employees.router.js';
 import { createLogger } from './platform/logger.js';
 import { notFoundHandler, problemHandler } from './platform/problem.js';
 
@@ -68,6 +74,19 @@ export function createApp({ environment, version, auth, organization }: AppOptio
         createCompanyRouter(organization.prisma, auth.service, auth.tokens)
       );
       app.use('/api/v1/roles', createRoleRouter(organization.prisma, auth.service, auth.tokens));
+      app.use(
+        '/api/v1/departments',
+        createDepartmentRouter(organization.prisma, auth.service, auth.tokens)
+      );
+      app.use(
+        '/api/v1/branches',
+        createBranchRouter(organization.prisma, auth.service, auth.tokens)
+      );
+      app.use('/api/v1/teams', createTeamRouter(organization.prisma, auth.service, auth.tokens));
+      app.use(
+        '/api/v1/employees',
+        createEmployeeRouter(organization.prisma, auth.service, auth.tokens)
+      );
     }
   }
   app.use(notFoundHandler);
