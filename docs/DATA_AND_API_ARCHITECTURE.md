@@ -1,5 +1,11 @@
 # Data and API Architecture
 
+The production logical model is defined in
+[`database/schema.prisma`](../database/schema.prisma) and documented in the
+[data model](../database/DATA_MODEL.md), [ERD](../database/ERD.md), and
+[migration strategy](../database/MIGRATION_STRATEGY.md). This document governs
+the surrounding data-access and API boundaries.
+
 ## Data ownership
 
 Domain modules own their tables and publish contracts for access. A module must

@@ -20,14 +20,22 @@ foundation phase.
 ├── database/
 │   ├── migrations/
 │   ├── policies/
-│   └── seeds/
+│   ├── seeds/
+│   ├── AI_SCHEMA.md
+│   ├── DATA_MODEL.md
+│   ├── ERD.md
+│   ├── MIGRATION_STRATEGY.md
+│   ├── SEED_PLAN.md
+│   └── schema.prisma
 ├── docker/
 │   ├── development/
 │   └── production/
 ├── docs/
 │   ├── adr/
 │   ├── runbooks/
+│   ├── sops/
 │   ├── threat-models/
+│   ├── SRS.md
 │   └── *.md
 ├── frontend/
 │   ├── mobile/
@@ -152,8 +160,9 @@ same review, test, promotion, and rollback controls as application changes.
 
 ### `database/`
 
-Schema definitions, migrations, seed definitions, database policies, and
-database-specific tests. Production data and database dumps are never committed.
+The production logical Prisma schema, entity catalogue, ERD, migration and seed
+strategies, migrations, database policies, and database-specific tests.
+Production data and database dumps are never committed.
 
 ### `tests/`
 

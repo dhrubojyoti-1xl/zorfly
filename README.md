@@ -71,6 +71,7 @@ rules.
 
 ## Documentation
 
+- [Software Requirements Specification](docs/SRS.md)
 - [Architecture](docs/ARCHITECTURE.md)
 - [Principal Architecture Review](docs/ARCHITECTURE_REVIEW.md)
 - [Authorization Architecture](docs/AUTHORIZATION_ARCHITECTURE.md)
@@ -83,6 +84,11 @@ rules.
 - [Coding Standards](docs/CODING_STANDARDS.md)
 - [Project Structure](docs/PROJECT_STRUCTURE.md)
 - [Implementation Plan](docs/IMPLEMENTATION_PLAN.md)
+- [Production Data Model](database/DATA_MODEL.md)
+- [Database ERD](database/ERD.md)
+- [AI Database Schema](database/AI_SCHEMA.md)
+- [Database Migration Strategy](database/MIGRATION_STRATEGY.md)
+- [Database Seed Plan](database/SEED_PLAN.md)
 - [Contributing](CONTRIBUTING.md)
 - [Security Policy](SECURITY.md)
 

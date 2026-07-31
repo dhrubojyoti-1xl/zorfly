@@ -1,5 +1,9 @@
 # AI and Agent Architecture
 
+The persisted AI control-plane entities and invariants are specified in
+[`database/AI_SCHEMA.md`](../database/AI_SCHEMA.md) and
+[`database/schema.prisma`](../database/schema.prisma).
+
 ## Status
 
 This document defines readiness boundaries for future AI capabilities. It does

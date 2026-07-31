@@ -1,0 +1,3256 @@
+// Zorfly production logical schema.
+// PostgreSQL policies, partitions, partial indexes, checks, and triggers that
+// Prisma cannot express are specified in MIGRATION_STRATEGY.md.
+
+generator client {
+  provider = "prisma-client"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+  schemas  = ["ai", "assessment", "communications", "content", "core", "engagement", "learning", "operations", "platform", "recruitment"]
+}
+
+enum TenantStatus {
+  PROVISIONING
+  ACTIVE
+  SUSPENDED
+  CLOSING
+  CLOSED
+
+  @@schema("core")
+}
+
+enum RecordStatus {
+  DRAFT
+  ACTIVE
+  INACTIVE
+  ARCHIVED
+
+  @@schema("core")
+}
+
+enum MembershipStatus {
+  INVITED
+  ACTIVE
+  SUSPENDED
+  TERMINATED
+
+  @@schema("core")
+}
+
+enum SupportAccessStatus {
+  REQUESTED
+  APPROVED
+  ACTIVE
+  REVOKED
+  EXPIRED
+
+  @@schema("core")
+}
+
+enum AssetKind {
+  IMAGE
+  VIDEO
+  AUDIO
+  DOCUMENT
+  SVG
+  OTHER
+
+  @@schema("content")
+}
+
+enum AssetStatus {
+  PENDING
+  PROCESSING
+  READY
+  QUARANTINED
+  REJECTED
+  DELETED
+
+  @@schema("content")
+}
+
+enum QuestionStatus {
+  DRAFT
+  IN_REVIEW
+  PUBLISHED
+  RETIRED
+  ARCHIVED
+
+  @@schema("content")
+}
+
+enum VersionStatus {
+  DRAFT
+  PUBLISHED
+  SUPERSEDED
+  RETIRED
+
+  @@schema("content")
+}
+
+enum AssessmentStatus {
+  DRAFT
+  PUBLISHED
+  SCHEDULED
+  ACTIVE
+  CLOSED
+  ARCHIVED
+
+  @@schema("assessment")
+}
+
+enum TargetScopeType {
+  TENANT
+  BRANCH
+  DEPARTMENT
+  TEAM
+  ROLE
+  MEMBERSHIP
+  CANDIDATE
+
+  @@schema("assessment")
+}
+
+enum AssignmentSource {
+  MANUAL
+  SCHEDULE
+  LEARNING_PATH
+  RECRUITMENT
+  RETAKE
+  API
+
+  @@schema("assessment")
+}
+
+enum AssignmentStatus {
+  PENDING
+  AVAILABLE
+  IN_PROGRESS
+  SUBMITTED
+  COMPLETED
+  MISSED
+  EXPIRED
+  CANCELLED
+
+  @@schema("assessment")
+}
+
+enum AttemptMode {
+  OFFICIAL
+  PRACTICE
+  RECRUITMENT
+  PREVIEW
+
+  @@schema("assessment")
+}
+
+enum AttemptStatus {
+  CREATED
+  IN_PROGRESS
+  SUBMITTED
+  EVALUATING
+  NEEDS_REVIEW
+  EVALUATED
+  PUBLISHED
+  ABANDONED
+  INVALIDATED
+
+  @@schema("assessment")
+}
+
+enum EvaluationStatus {
+  PENDING
+  SCORED
+  NEEDS_REVIEW
+  OVERRIDDEN
+  VOIDED
+
+  @@schema("assessment")
+}
+
+enum ManualReviewStatus {
+  UNASSIGNED
+  ASSIGNED
+  IN_REVIEW
+  COMPLETED
+  RETURNED
+  CANCELLED
+
+  @@schema("assessment")
+}
+
+enum ScheduleFrequency {
+  ONCE
+  DAILY
+  WEEKLY
+  MONTHLY
+  QUARTERLY
+  ANNUALLY
+  CUSTOM
+
+  @@schema("assessment")
+}
+
+enum CycleStatus {
+  PLANNED
+  OPEN
+  CLOSED
+  PROCESSING
+  COMPLETED
+  CANCELLED
+
+  @@schema("assessment")
+}
+
+enum MissedWorkPolicy {
+  MARK_ABSENT
+  SCORE_ZERO
+  LATE_PENALTY
+  ALLOW_EXTENSION
+  MANUAL_REVIEW
+
+  @@schema("assessment")
+}
+
+enum IntegrityEventType {
+  FOCUS_LOST
+  WINDOW_HIDDEN
+  COPY_ATTEMPT
+  PASTE_ATTEMPT
+  FULLSCREEN_EXIT
+  NETWORK_CHANGE
+  DEVICE_CHANGE
+  TIME_ANOMALY
+  OTHER
+
+  @@schema("assessment")
+}
+
+enum LearningContentType {
+  ARTICLE
+  PDF
+  VIDEO
+  AUDIO
+  BRAND_GUIDE
+  CHECKLIST
+  EXTERNAL_LINK
+
+  @@schema("learning")
+}
+
+enum LearningAssignmentStatus {
+  ASSIGNED
+  IN_PROGRESS
+  COMPLETED
+  OVERDUE
+  WAIVED
+  CANCELLED
+
+  @@schema("learning")
+}
+
+enum ProgressStatus {
+  NOT_STARTED
+  IN_PROGRESS
+  COMPLETED
+  FAILED
+  SKIPPED
+
+  @@schema("learning")
+}
+
+enum CertificateStatus {
+  ISSUED
+  REVOKED
+  EXPIRED
+
+  @@schema("learning")
+}
+
+enum RecruitmentDriveStatus {
+  DRAFT
+  OPEN
+  PAUSED
+  CLOSED
+  ARCHIVED
+
+  @@schema("recruitment")
+}
+
+enum CandidateStatus {
+  INVITED
+  ACTIVE
+  WITHDRAWN
+  ANONYMIZED
+  PURGED
+
+  @@schema("recruitment")
+}
+
+enum ApplicationStatus {
+  APPLIED
+  INVITED
+  ASSESSING
+  UNDER_REVIEW
+  SHORTLISTED
+  ON_HOLD
+  REJECTED
+  HIRED
+  WITHDRAWN
+
+  @@schema("recruitment")
+}
+
+enum RecruitmentDecision {
+  SHORTLIST
+  HOLD
+  REJECT
+  HIRE
+  REOPEN
+
+  @@schema("recruitment")
+}
+
+enum LeaderboardScope {
+  TENANT
+  BRANCH
+  DEPARTMENT
+  TEAM
+
+  @@schema("engagement")
+}
+
+enum LedgerEntryType {
+  EARN
+  ADJUST
+  RESERVE
+  RELEASE
+  REDEEM
+  EXPIRE
+
+  @@schema("engagement")
+}
+
+enum RedemptionStatus {
+  REQUESTED
+  APPROVED
+  FULFILLED
+  REJECTED
+  CANCELLED
+
+  @@schema("engagement")
+}
+
+enum NotificationChannel {
+  IN_APP
+  EMAIL
+  PUSH
+  SMS
+  WEBHOOK
+
+  @@schema("communications")
+}
+
+enum DeliveryStatus {
+  PENDING
+  QUEUED
+  SENT
+  DELIVERED
+  FAILED
+  BOUNCED
+  CANCELLED
+
+  @@schema("communications")
+}
+
+enum ReportRunStatus {
+  QUEUED
+  RUNNING
+  SUCCEEDED
+  FAILED
+  EXPIRED
+
+  @@schema("communications")
+}
+
+enum AIExecutionStatus {
+  QUEUED
+  RUNNING
+  SUCCEEDED
+  FAILED
+  CANCELLED
+  BLOCKED
+
+  @@schema("ai")
+}
+
+enum AIExecutionPurpose {
+  QUESTION_GENERATION
+  RESPONSE_EVALUATION
+  FEEDBACK
+  RECOMMENDATION
+  IMAGE_GENERATION
+  SVG_GENERATION
+  MODERATION
+  AGENT
+  OTHER
+
+  @@schema("ai")
+}
+
+enum AIRecommendationStatus {
+  PROPOSED
+  ACCEPTED
+  DISMISSED
+  EXPIRED
+  WITHDRAWN
+
+  @@schema("ai")
+}
+
+enum AgentRunStatus {
+  QUEUED
+  RUNNING
+  WAITING_APPROVAL
+  SUCCEEDED
+  FAILED
+  CANCELLED
+
+  @@schema("ai")
+}
+
+enum AuditActorType {
+  USER
+  CANDIDATE
+  SERVICE
+  SUPPORT
+  SYSTEM
+
+  @@schema("operations")
+}
+
+enum AuditOutcome {
+  SUCCEEDED
+  DENIED
+  FAILED
+
+  @@schema("operations")
+}
+
+enum OutboxStatus {
+  PENDING
+  PUBLISHED
+  FAILED
+  DEAD_LETTERED
+
+  @@schema("operations")
+}
+
+enum DataRequestType {
+  EXPORT
+  RECTIFICATION
+  DELETION
+  RESTRICTION
+
+  @@schema("operations")
+}
+
+enum DataRequestStatus {
+  REQUESTED
+  VERIFIED
+  APPROVED
+  PROCESSING
+  COMPLETED
+  REJECTED
+  CANCELLED
+
+  @@schema("operations")
+}
+
+enum SubscriptionStatus {
+  TRIALING
+  ACTIVE
+  PAST_DUE
+  SUSPENDED
+  CANCELLED
+  EXPIRED
+
+  @@schema("platform")
+}
+
+enum InvoiceStatus {
+  DRAFT
+  OPEN
+  PAID
+  VOID
+  UNCOLLECTIBLE
+
+  @@schema("platform")
+}
+
+enum PaymentStatus {
+  PENDING
+  SUCCEEDED
+  FAILED
+  REFUNDED
+  PARTIALLY_REFUNDED
+
+  @@schema("platform")
+}
+
+model User {
+  id                     String               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  externalSubject        String?              @unique @db.VarChar(255)
+  emailCanonical         String               @unique @db.VarChar(320)
+  displayName            String?              @db.VarChar(200)
+  locale                 String               @default("en") @db.VarChar(16)
+  timeZone               String               @default("UTC") @db.VarChar(64)
+  isPlatformOperator     Boolean              @default(false)
+  lastAuthenticatedAt    DateTime?            @db.Timestamptz(6)
+  createdAt              DateTime             @default(now()) @db.Timestamptz(6)
+  updatedAt              DateTime             @updatedAt @db.Timestamptz(6)
+  deletedAt              DateTime?            @db.Timestamptz(6)
+  rowVersion             Int                  @default(1)
+  memberships            TenantMembership[]
+  supportAccessGrants    SupportAccessGrant[] @relation("SupportGrantee")
+  supportAccessApprovals SupportAccessGrant[] @relation("SupportApprover")
+  platformRoles          PlatformUserRole[]
+
+  @@index([deletedAt])
+  @@schema("platform")
+}
+
+model Permission {
+  id                String                   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  key               String                   @unique @db.VarChar(160)
+  description       String                   @db.VarChar(500)
+  riskLevel         Int                      @default(1) @db.SmallInt
+  createdAt         DateTime                 @default(now()) @db.Timestamptz(6)
+  updatedAt         DateTime                 @updatedAt @db.Timestamptz(6)
+  roleLinks         TenantRolePermission[]
+  platformRoleLinks PlatformRolePermission[]
+
+  @@schema("platform")
+}
+
+model PlatformRole {
+  id          String                   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  key         String                   @unique @db.VarChar(80)
+  name        String                   @db.VarChar(120)
+  description String?                  @db.VarChar(500)
+  createdAt   DateTime                 @default(now()) @db.Timestamptz(6)
+  updatedAt   DateTime                 @updatedAt @db.Timestamptz(6)
+  permissions PlatformRolePermission[]
+  users       PlatformUserRole[]
+
+  @@schema("platform")
+}
+
+model PlatformRolePermission {
+  roleId       String       @db.Uuid
+  permissionId String       @db.Uuid
+  createdAt    DateTime     @default(now()) @db.Timestamptz(6)
+  updatedAt    DateTime     @updatedAt @db.Timestamptz(6)
+  role         PlatformRole @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission   Permission   @relation(fields: [permissionId], references: [id], onDelete: Restrict)
+
+  @@id([roleId, permissionId])
+  @@schema("platform")
+}
+
+model PlatformUserRole {
+  userId      String       @db.Uuid
+  roleId      String       @db.Uuid
+  grantedById String?      @db.Uuid
+  expiresAt   DateTime?    @db.Timestamptz(6)
+  createdAt   DateTime     @default(now()) @db.Timestamptz(6)
+  updatedAt   DateTime     @updatedAt @db.Timestamptz(6)
+  user        User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role        PlatformRole @relation(fields: [roleId], references: [id], onDelete: Cascade)
+
+  @@id([userId, roleId])
+  @@index([expiresAt])
+  @@schema("platform")
+}
+
+model SubscriptionPlan {
+  id            String               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  code          String               @unique @db.VarChar(80)
+  name          String               @db.VarChar(120)
+  currency      String               @default("USD") @db.Char(3)
+  monthlyAmount Decimal              @default(0) @db.Decimal(19, 4)
+  annualAmount  Decimal              @default(0) @db.Decimal(19, 4)
+  status        RecordStatus         @default(DRAFT)
+  createdAt     DateTime             @default(now()) @db.Timestamptz(6)
+  updatedAt     DateTime             @updatedAt @db.Timestamptz(6)
+  deletedAt     DateTime?            @db.Timestamptz(6)
+  entitlements  PlanEntitlement[]
+  subscriptions TenantSubscription[]
+
+  @@index([status, deletedAt])
+  @@schema("platform")
+}
+
+model PlanEntitlement {
+  id         String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  planId     String           @db.Uuid
+  featureKey String           @db.VarChar(160)
+  enabled    Boolean          @default(true)
+  limitValue BigInt?
+  config     Json?            @db.JsonB
+  createdAt  DateTime         @default(now()) @db.Timestamptz(6)
+  updatedAt  DateTime         @updatedAt @db.Timestamptz(6)
+  plan       SubscriptionPlan @relation(fields: [planId], references: [id], onDelete: Cascade)
+
+  @@unique([planId, featureKey])
+  @@schema("platform")
+}
+
+model QuestionType {
+  id                String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  key               String            @unique @db.VarChar(80)
+  name              String            @db.VarChar(120)
+  answerSchema      Json              @db.JsonB
+  supportsAutoScore Boolean           @default(false)
+  supportsMedia     Boolean           @default(false)
+  status            RecordStatus      @default(ACTIVE)
+  createdAt         DateTime          @default(now()) @db.Timestamptz(6)
+  updatedAt         DateTime          @updatedAt @db.Timestamptz(6)
+  questionVersions  QuestionVersion[]
+
+  @@index([status])
+  @@schema("platform")
+}
+
+model RewardType {
+  id             String                @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  key            String                @unique @db.VarChar(80)
+  name           String                @db.VarChar(120)
+  description    String?               @db.VarChar(500)
+  status         RecordStatus          @default(ACTIVE)
+  createdAt      DateTime              @default(now()) @db.Timestamptz(6)
+  updatedAt      DateTime              @updatedAt @db.Timestamptz(6)
+  catalogueItems RewardCatalogueItem[]
+
+  @@schema("platform")
+}
+
+model Tenant {
+  id                      String                          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  code                    String                          @unique @db.VarChar(40)
+  slug                    String                          @unique @db.VarChar(80)
+  name                    String                          @db.VarChar(200)
+  status                  TenantStatus                    @default(PROVISIONING)
+  dataRegion              String                          @default("ap-south-1") @db.VarChar(32)
+  locale                  String                          @default("en") @db.VarChar(16)
+  timeZone                String                          @default("UTC") @db.VarChar(64)
+  retentionDays           Int                             @default(2555)
+  settings                Json?                           @db.JsonB
+  createdAt               DateTime                        @default(now()) @db.Timestamptz(6)
+  updatedAt               DateTime                        @updatedAt @db.Timestamptz(6)
+  createdById             String?                         @db.Uuid
+  updatedById             String?                         @db.Uuid
+  deletedAt               DateTime?                       @db.Timestamptz(6)
+  deletedById             String?                         @db.Uuid
+  rowVersion              Int                             @default(1)
+  domains                 TenantDomain[]
+  branding                TenantBranding?
+  branches                Branch[]
+  departments             Department[]
+  teams                   Team[]
+  memberships             TenantMembership[]
+  roles                   TenantRole[]
+  supportAccessGrants     SupportAccessGrant[]
+  subscriptions           TenantSubscription[]
+  invoices                Invoice[]
+  payments                Payment[]
+  categories              AssessmentCategory[]
+  difficultyLevels        DifficultyLevel[]
+  qualityCriteria         QualityCriterion[]
+  tags                    Tag[]
+  mediaAssets             MediaAsset[]
+  questions               Question[]
+  assessments             AssessmentDefinition[]
+  learningMaterials       LearningMaterial[]
+  learningPaths           LearningPath[]
+  candidates              CandidateProfile[]
+  recruitmentDrives       RecruitmentDrive[]
+  leaderboards            LeaderboardDefinition[]
+  badgeDefinitions        BadgeDefinition[]
+  rewardCatalogueItems    RewardCatalogueItem[]
+  notificationTemplates   NotificationTemplate[]
+  notificationPreferences NotificationPreference[]
+  reportDefinitions       ReportDefinition[]
+  aiProviderConfigs       TenantAIProviderConfiguration[]
+  aiModelConfigs          AIModelConfiguration[]
+  aiPrompts               AIPrompt[]
+  auditEvents             AuditEvent[]
+  outboxEvents            OutboxEvent[]
+  dataRequests            DataSubjectRequest[]
+
+  @@index([status, deletedAt])
+  @@schema("core")
+}
+
+model TenantDomain {
+  id         String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId   String    @db.Uuid
+  hostname   String    @unique @db.VarChar(253)
+  isPrimary  Boolean   @default(false)
+  verifiedAt DateTime? @db.Timestamptz(6)
+  createdAt  DateTime  @default(now()) @db.Timestamptz(6)
+  updatedAt  DateTime  @updatedAt @db.Timestamptz(6)
+  deletedAt  DateTime? @db.Timestamptz(6)
+  tenant     Tenant    @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+
+  @@index([tenantId, isPrimary, deletedAt])
+  @@schema("core")
+}
+
+model TenantBranding {
+  id                 String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId           String             @unique @db.Uuid
+  logoAssetVersionId String?            @db.Uuid
+  primaryColor       String?            @db.VarChar(16)
+  secondaryColor     String?            @db.VarChar(16)
+  accentColor        String?            @db.VarChar(16)
+  customCss          String?            @db.Text
+  emailFromName      String?            @db.VarChar(120)
+  createdAt          DateTime           @default(now()) @db.Timestamptz(6)
+  updatedAt          DateTime           @updatedAt @db.Timestamptz(6)
+  createdById        String?            @db.Uuid
+  updatedById        String?            @db.Uuid
+  deletedAt          DateTime?          @db.Timestamptz(6)
+  deletedById        String?            @db.Uuid
+  rowVersion         Int                @default(1)
+  tenant             Tenant             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  logoAssetVersion   MediaAssetVersion? @relation("BrandLogo", fields: [logoAssetVersionId], references: [id], onDelete: SetNull)
+
+  @@schema("core")
+}
+
+model Branch {
+  id          String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId    String             @db.Uuid
+  code        String             @db.VarChar(40)
+  name        String             @db.VarChar(160)
+  timeZone    String?            @db.VarChar(64)
+  status      RecordStatus       @default(ACTIVE)
+  createdAt   DateTime           @default(now()) @db.Timestamptz(6)
+  updatedAt   DateTime           @updatedAt @db.Timestamptz(6)
+  createdById String?            @db.Uuid
+  updatedById String?            @db.Uuid
+  deletedAt   DateTime?          @db.Timestamptz(6)
+  deletedById String?            @db.Uuid
+  rowVersion  Int                @default(1)
+  tenant      Tenant             @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  departments Department[]
+  memberships TenantMembership[]
+
+  @@unique([tenantId, code])
+  @@index([tenantId, status, deletedAt])
+  @@schema("core")
+}
+
+model Department {
+  id          String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId    String             @db.Uuid
+  branchId    String?            @db.Uuid
+  parentId    String?            @db.Uuid
+  code        String             @db.VarChar(40)
+  name        String             @db.VarChar(160)
+  status      RecordStatus       @default(ACTIVE)
+  createdAt   DateTime           @default(now()) @db.Timestamptz(6)
+  updatedAt   DateTime           @updatedAt @db.Timestamptz(6)
+  createdById String?            @db.Uuid
+  updatedById String?            @db.Uuid
+  deletedAt   DateTime?          @db.Timestamptz(6)
+  deletedById String?            @db.Uuid
+  rowVersion  Int                @default(1)
+  tenant      Tenant             @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  branch      Branch?            @relation(fields: [branchId], references: [id], onDelete: Restrict)
+  parent      Department?        @relation("DepartmentTree", fields: [parentId], references: [id], onDelete: Restrict)
+  children    Department[]       @relation("DepartmentTree")
+  teams       Team[]
+  memberships TenantMembership[]
+
+  @@unique([tenantId, code])
+  @@index([tenantId, parentId, deletedAt])
+  @@index([tenantId, branchId, status])
+  @@schema("core")
+}
+
+model Team {
+  id           String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId     String           @db.Uuid
+  departmentId String?          @db.Uuid
+  code         String           @db.VarChar(40)
+  name         String           @db.VarChar(160)
+  status       RecordStatus     @default(ACTIVE)
+  createdAt    DateTime         @default(now()) @db.Timestamptz(6)
+  updatedAt    DateTime         @updatedAt @db.Timestamptz(6)
+  createdById  String?          @db.Uuid
+  updatedById  String?          @db.Uuid
+  deletedAt    DateTime?        @db.Timestamptz(6)
+  deletedById  String?          @db.Uuid
+  rowVersion   Int              @default(1)
+  tenant       Tenant           @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  department   Department?      @relation(fields: [departmentId], references: [id], onDelete: Restrict)
+  memberships  TeamMembership[]
+
+  @@unique([tenantId, code])
+  @@index([tenantId, departmentId, status, deletedAt])
+  @@schema("core")
+}
+
+model TenantMembership {
+  id                     String                   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId               String                   @db.Uuid
+  userId                 String                   @db.Uuid
+  branchId               String?                  @db.Uuid
+  departmentId           String?                  @db.Uuid
+  managerId              String?                  @db.Uuid
+  employeeNumber         String?                  @db.VarChar(80)
+  jobTitle               String?                  @db.VarChar(160)
+  employmentLevel        String?                  @db.VarChar(80)
+  status                 MembershipStatus         @default(INVITED)
+  joinedAt               DateTime?                @db.Date
+  leftAt                 DateTime?                @db.Date
+  createdAt              DateTime                 @default(now()) @db.Timestamptz(6)
+  updatedAt              DateTime                 @updatedAt @db.Timestamptz(6)
+  createdById            String?                  @db.Uuid
+  updatedById            String?                  @db.Uuid
+  deletedAt              DateTime?                @db.Timestamptz(6)
+  deletedById            String?                  @db.Uuid
+  rowVersion             Int                      @default(1)
+  tenant                 Tenant                   @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  user                   User                     @relation(fields: [userId], references: [id], onDelete: Restrict)
+  branch                 Branch?                  @relation(fields: [branchId], references: [id], onDelete: Restrict)
+  department             Department?              @relation(fields: [departmentId], references: [id], onDelete: Restrict)
+  manager                TenantMembership?        @relation("ManagementTree", fields: [managerId], references: [id], onDelete: Restrict)
+  directReports          TenantMembership[]       @relation("ManagementTree")
+  teams                  TeamMembership[]
+  roles                  MembershipRole[]
+  assignments            AssessmentAssignment[]
+  attempts               AssessmentAttempt[]
+  manualReviews          ManualReview[]
+  learningAssignments    LearningPathAssignment[]
+  learningProgress       LearningProgress[]
+  certificates           Certificate[]
+  badgeAwards            BadgeAward[]
+  pointEntries           RewardPointLedger[]
+  redemptions            RewardRedemption[]
+  leaderboardEntries     LeaderboardEntry[]
+  notifications          NotificationDelivery[]
+  notificationPreference NotificationPreference?
+  employeeMetricPeriods  EmployeeMetricPeriod[]
+
+  @@unique([tenantId, userId])
+  @@unique([tenantId, employeeNumber])
+  @@index([tenantId, status, deletedAt])
+  @@index([tenantId, departmentId, managerId])
+  @@schema("core")
+}
+
+model TeamMembership {
+  tenantId     String           @db.Uuid
+  teamId       String           @db.Uuid
+  membershipId String           @db.Uuid
+  isLead       Boolean          @default(false)
+  startsAt     DateTime         @default(now()) @db.Timestamptz(6)
+  endsAt       DateTime?        @db.Timestamptz(6)
+  createdAt    DateTime         @default(now()) @db.Timestamptz(6)
+  updatedAt    DateTime         @updatedAt @db.Timestamptz(6)
+  team         Team             @relation(fields: [teamId], references: [id], onDelete: Restrict)
+  membership   TenantMembership @relation(fields: [membershipId], references: [id], onDelete: Restrict)
+
+  @@id([teamId, membershipId])
+  @@index([tenantId, membershipId, endsAt])
+  @@index([tenantId, teamId, isLead])
+  @@schema("core")
+}
+
+model TenantRole {
+  id          String                 @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId    String                 @db.Uuid
+  key         String                 @db.VarChar(80)
+  name        String                 @db.VarChar(120)
+  description String?                @db.VarChar(500)
+  isSystem    Boolean                @default(false)
+  status      RecordStatus           @default(ACTIVE)
+  createdAt   DateTime               @default(now()) @db.Timestamptz(6)
+  updatedAt   DateTime               @updatedAt @db.Timestamptz(6)
+  createdById String?                @db.Uuid
+  updatedById String?                @db.Uuid
+  deletedAt   DateTime?              @db.Timestamptz(6)
+  deletedById String?                @db.Uuid
+  rowVersion  Int                    @default(1)
+  tenant      Tenant                 @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  permissions TenantRolePermission[]
+  memberships MembershipRole[]
+
+  @@unique([tenantId, key])
+  @@index([tenantId, status, deletedAt])
+  @@schema("core")
+}
+
+model TenantRolePermission {
+  tenantId     String     @db.Uuid
+  roleId       String     @db.Uuid
+  permissionId String     @db.Uuid
+  createdAt    DateTime   @default(now()) @db.Timestamptz(6)
+  updatedAt    DateTime   @updatedAt @db.Timestamptz(6)
+  role         TenantRole @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission   Permission @relation(fields: [permissionId], references: [id], onDelete: Restrict)
+
+  @@id([roleId, permissionId])
+  @@index([tenantId, permissionId])
+  @@schema("core")
+}
+
+model MembershipRole {
+  tenantId     String           @db.Uuid
+  membershipId String           @db.Uuid
+  roleId       String           @db.Uuid
+  grantedById  String?          @db.Uuid
+  expiresAt    DateTime?        @db.Timestamptz(6)
+  createdAt    DateTime         @default(now()) @db.Timestamptz(6)
+  updatedAt    DateTime         @updatedAt @db.Timestamptz(6)
+  membership   TenantMembership @relation(fields: [membershipId], references: [id], onDelete: Cascade)
+  role         TenantRole       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+
+  @@id([membershipId, roleId])
+  @@index([tenantId, roleId, expiresAt])
+  @@schema("core")
+}
+
+model SupportAccessGrant {
+  id            String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId      String              @db.Uuid
+  granteeUserId String              @db.Uuid
+  approvedById  String?             @db.Uuid
+  status        SupportAccessStatus @default(REQUESTED)
+  reason        String              @db.VarChar(1000)
+  scope         Json                @db.JsonB
+  startsAt      DateTime?           @db.Timestamptz(6)
+  expiresAt     DateTime            @db.Timestamptz(6)
+  revokedAt     DateTime?           @db.Timestamptz(6)
+  createdAt     DateTime            @default(now()) @db.Timestamptz(6)
+  updatedAt     DateTime            @updatedAt @db.Timestamptz(6)
+  tenant        Tenant              @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  grantee       User                @relation("SupportGrantee", fields: [granteeUserId], references: [id], onDelete: Restrict)
+  approver      User?               @relation("SupportApprover", fields: [approvedById], references: [id], onDelete: Restrict)
+
+  @@index([tenantId, status, expiresAt])
+  @@index([granteeUserId, status])
+  @@schema("core")
+}
+
+model TenantSubscription {
+  id                     String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId               String             @db.Uuid
+  planId                 String             @db.Uuid
+  externalSubscriptionId String?            @unique @db.VarChar(255)
+  status                 SubscriptionStatus
+  startsAt               DateTime           @db.Timestamptz(6)
+  currentPeriodStart     DateTime           @db.Timestamptz(6)
+  currentPeriodEnd       DateTime           @db.Timestamptz(6)
+  cancelAt               DateTime?          @db.Timestamptz(6)
+  endedAt                DateTime?          @db.Timestamptz(6)
+  createdAt              DateTime           @default(now()) @db.Timestamptz(6)
+  updatedAt              DateTime           @updatedAt @db.Timestamptz(6)
+  tenant                 Tenant             @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  plan                   SubscriptionPlan   @relation(fields: [planId], references: [id], onDelete: Restrict)
+  invoices               Invoice[]
+
+  @@index([tenantId, status, currentPeriodEnd])
+  @@schema("platform")
+}
+
+model Invoice {
+  id                String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId          String             @db.Uuid
+  subscriptionId    String             @db.Uuid
+  externalInvoiceId String?            @unique @db.VarChar(255)
+  number            String             @db.VarChar(80)
+  status            InvoiceStatus
+  currency          String             @db.Char(3)
+  subtotal          Decimal            @db.Decimal(19, 4)
+  tax               Decimal            @default(0) @db.Decimal(19, 4)
+  total             Decimal            @db.Decimal(19, 4)
+  dueAt             DateTime?          @db.Timestamptz(6)
+  paidAt            DateTime?          @db.Timestamptz(6)
+  createdAt         DateTime           @default(now()) @db.Timestamptz(6)
+  updatedAt         DateTime           @updatedAt @db.Timestamptz(6)
+  tenant            Tenant             @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  subscription      TenantSubscription @relation(fields: [subscriptionId], references: [id], onDelete: Restrict)
+  payments          Payment[]
+
+  @@unique([tenantId, number])
+  @@index([tenantId, status, dueAt])
+  @@schema("platform")
+}
+
+model Payment {
+  id                String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId          String        @db.Uuid
+  invoiceId         String        @db.Uuid
+  externalPaymentId String?       @unique @db.VarChar(255)
+  status            PaymentStatus
+  amount            Decimal       @db.Decimal(19, 4)
+  currency          String        @db.Char(3)
+  provider          String        @db.VarChar(80)
+  paidAt            DateTime?     @db.Timestamptz(6)
+  failureCode       String?       @db.VarChar(160)
+  createdAt         DateTime      @default(now()) @db.Timestamptz(6)
+  updatedAt         DateTime      @updatedAt @db.Timestamptz(6)
+  tenant            Tenant        @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  invoice           Invoice       @relation(fields: [invoiceId], references: [id], onDelete: Restrict)
+
+  @@index([tenantId, status, createdAt])
+  @@index([invoiceId, status])
+  @@schema("platform")
+}
+
+model AssessmentCategory {
+  id                     String                  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId               String                  @db.Uuid
+  parentId               String?                 @db.Uuid
+  code                   String                  @db.VarChar(80)
+  name                   String                  @db.VarChar(160)
+  description            String?                 @db.Text
+  sortOrder              Int                     @default(0)
+  status                 RecordStatus            @default(ACTIVE)
+  createdAt              DateTime                @default(now()) @db.Timestamptz(6)
+  updatedAt              DateTime                @updatedAt @db.Timestamptz(6)
+  createdById            String?                 @db.Uuid
+  updatedById            String?                 @db.Uuid
+  deletedAt              DateTime?               @db.Timestamptz(6)
+  deletedById            String?                 @db.Uuid
+  rowVersion             Int                     @default(1)
+  tenant                 Tenant                  @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  parent                 AssessmentCategory?     @relation("CategoryTree", fields: [parentId], references: [id], onDelete: Restrict)
+  children               AssessmentCategory[]    @relation("CategoryTree")
+  questions              Question[]
+  assessments            AssessmentDefinition[]
+  materials              LearningMaterial[]
+  criteria               QualityCriterion[]
+  attemptCategoryResults AttemptCategoryResult[]
+
+  @@unique([tenantId, code])
+  @@index([tenantId, parentId, sortOrder, deletedAt])
+  @@schema("content")
+}
+
+model DifficultyLevel {
+  id          String                 @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId    String                 @db.Uuid
+  code        String                 @db.VarChar(80)
+  name        String                 @db.VarChar(120)
+  rank        Int                    @db.SmallInt
+  description String?                @db.VarChar(500)
+  status      RecordStatus           @default(ACTIVE)
+  createdAt   DateTime               @default(now()) @db.Timestamptz(6)
+  updatedAt   DateTime               @updatedAt @db.Timestamptz(6)
+  createdById String?                @db.Uuid
+  updatedById String?                @db.Uuid
+  deletedAt   DateTime?              @db.Timestamptz(6)
+  deletedById String?                @db.Uuid
+  rowVersion  Int                    @default(1)
+  tenant      Tenant                 @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  questions   Question[]
+  assessments AssessmentDefinition[]
+
+  @@unique([tenantId, code])
+  @@unique([tenantId, rank])
+  @@index([tenantId, status, deletedAt])
+  @@schema("content")
+}
+
+model QualityCriterion {
+  id              String                 @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId        String                 @db.Uuid
+  categoryId      String?                @db.Uuid
+  parentId        String?                @db.Uuid
+  code            String                 @db.VarChar(100)
+  name            String                 @db.VarChar(180)
+  description     String?                @db.Text
+  defaultSeverity Int?                   @db.SmallInt
+  defaultWeight   Decimal?               @db.Decimal(9, 4)
+  status          RecordStatus           @default(ACTIVE)
+  createdAt       DateTime               @default(now()) @db.Timestamptz(6)
+  updatedAt       DateTime               @updatedAt @db.Timestamptz(6)
+  createdById     String?                @db.Uuid
+  updatedById     String?                @db.Uuid
+  deletedAt       DateTime?              @db.Timestamptz(6)
+  deletedById     String?                @db.Uuid
+  rowVersion      Int                    @default(1)
+  tenant          Tenant                 @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  category        AssessmentCategory?    @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  parent          QualityCriterion?      @relation("CriterionTree", fields: [parentId], references: [id], onDelete: Restrict)
+  children        QualityCriterion[]     @relation("CriterionTree")
+  answerTargets   QuestionAnswerTarget[]
+  evaluationItems ResponseEvaluation[]
+
+  @@unique([tenantId, code])
+  @@index([tenantId, categoryId, status, deletedAt])
+  @@index([tenantId, parentId])
+  @@schema("content")
+}
+
+model Tag {
+  id          String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId    String        @db.Uuid
+  key         String        @db.VarChar(100)
+  name        String        @db.VarChar(120)
+  color       String?       @db.VarChar(16)
+  createdAt   DateTime      @default(now()) @db.Timestamptz(6)
+  updatedAt   DateTime      @updatedAt @db.Timestamptz(6)
+  createdById String?       @db.Uuid
+  updatedById String?       @db.Uuid
+  deletedAt   DateTime?     @db.Timestamptz(6)
+  deletedById String?       @db.Uuid
+  rowVersion  Int           @default(1)
+  tenant      Tenant        @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  questions   QuestionTag[]
+
+  @@unique([tenantId, key])
+  @@index([tenantId, deletedAt])
+  @@schema("content")
+}
+
+model MediaAsset {
+  id               String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId         String              @db.Uuid
+  kind             AssetKind
+  name             String              @db.VarChar(255)
+  description      String?             @db.Text
+  source           String              @default("UPLOAD") @db.VarChar(40)
+  status           AssetStatus         @default(PENDING)
+  currentVersionId String?             @unique @db.Uuid
+  createdAt        DateTime            @default(now()) @db.Timestamptz(6)
+  updatedAt        DateTime            @updatedAt @db.Timestamptz(6)
+  createdById      String?             @db.Uuid
+  updatedById      String?             @db.Uuid
+  deletedAt        DateTime?           @db.Timestamptz(6)
+  deletedById      String?             @db.Uuid
+  rowVersion       Int                 @default(1)
+  tenant           Tenant              @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  currentVersion   MediaAssetVersion?  @relation("CurrentAssetVersion", fields: [currentVersionId], references: [id], onDelete: Restrict)
+  versions         MediaAssetVersion[] @relation("AssetVersions")
+
+  @@index([tenantId, kind, status, deletedAt])
+  @@index([tenantId, createdAt])
+  @@schema("content")
+}
+
+model MediaAssetVersion {
+  id               String                    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId         String                    @db.Uuid
+  assetId          String                    @db.Uuid
+  versionNumber    Int
+  storageProvider  String                    @db.VarChar(40)
+  storageBucket    String                    @db.VarChar(255)
+  storageKey       String                    @db.VarChar(1024)
+  contentType      String                    @db.VarChar(160)
+  byteSize         BigInt
+  checksumSha256   String                    @db.Char(64)
+  width            Int?
+  height           Int?
+  durationMs       Int?
+  metadata         Json?                     @db.JsonB
+  scanStatus       String                    @default("PENDING") @db.VarChar(40)
+  moderationStatus String                    @default("PENDING") @db.VarChar(40)
+  provenance       Json?                     @db.JsonB
+  createdAt        DateTime                  @default(now()) @db.Timestamptz(6)
+  updatedAt        DateTime                  @updatedAt @db.Timestamptz(6)
+  createdById      String?                   @db.Uuid
+  asset            MediaAsset                @relation("AssetVersions", fields: [assetId], references: [id], onDelete: Restrict)
+  currentForAsset  MediaAsset?               @relation("CurrentAssetVersion")
+  brandings        TenantBranding[]          @relation("BrandLogo")
+  questionMedia    QuestionVersionMedia[]
+  materialVersions LearningMaterialVersion[]
+  generatedImages  GeneratedImage[]
+  svgAssets        SVGAsset[]
+  lineageAsParent  AssetLineage[]            @relation("AssetParent")
+  lineageAsChild   AssetLineage[]            @relation("AssetChild")
+  questionOptions  QuestionOption[]
+
+  @@unique([assetId, versionNumber])
+  @@unique([tenantId, storageBucket, storageKey])
+  @@index([tenantId, checksumSha256])
+  @@index([tenantId, createdAt])
+  @@schema("content")
+}
+
+model AssetLineage {
+  tenantId        String            @db.Uuid
+  parentVersionId String            @db.Uuid
+  childVersionId  String            @db.Uuid
+  operation       String            @db.VarChar(80)
+  parameters      Json?             @db.JsonB
+  createdAt       DateTime          @default(now()) @db.Timestamptz(6)
+  updatedAt       DateTime          @updatedAt @db.Timestamptz(6)
+  parent          MediaAssetVersion @relation("AssetParent", fields: [parentVersionId], references: [id], onDelete: Restrict)
+  child           MediaAssetVersion @relation("AssetChild", fields: [childVersionId], references: [id], onDelete: Restrict)
+
+  @@id([parentVersionId, childVersionId])
+  @@index([tenantId, childVersionId])
+  @@schema("content")
+}
+
+model Question {
+  id                String                      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId          String                      @db.Uuid
+  categoryId        String                      @db.Uuid
+  difficultyLevelId String                      @db.Uuid
+  code              String                      @db.VarChar(100)
+  title             String                      @db.VarChar(255)
+  status            QuestionStatus              @default(DRAFT)
+  currentVersionId  String?                     @unique @db.Uuid
+  createdAt         DateTime                    @default(now()) @db.Timestamptz(6)
+  updatedAt         DateTime                    @updatedAt @db.Timestamptz(6)
+  createdById       String?                     @db.Uuid
+  updatedById       String?                     @db.Uuid
+  deletedAt         DateTime?                   @db.Timestamptz(6)
+  deletedById       String?                     @db.Uuid
+  rowVersion        Int                         @default(1)
+  tenant            Tenant                      @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  category          AssessmentCategory          @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  difficultyLevel   DifficultyLevel             @relation(fields: [difficultyLevelId], references: [id], onDelete: Restrict)
+  currentVersion    QuestionVersion?            @relation("CurrentQuestionVersion", fields: [currentVersionId], references: [id], onDelete: Restrict)
+  versions          QuestionVersion[]           @relation("QuestionVersions")
+  tags              QuestionTag[]
+  generationHistory QuestionGenerationHistory[]
+
+  @@unique([tenantId, code])
+  @@index([tenantId, categoryId, difficultyLevelId, status, deletedAt])
+  @@index([tenantId, updatedAt])
+  @@schema("content")
+}
+
+model QuestionVersion {
+  id                   String                      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId             String                      @db.Uuid
+  questionId           String                      @db.Uuid
+  questionTypeId       String                      @db.Uuid
+  versionNumber        Int
+  status               VersionStatus               @default(DRAFT)
+  prompt               String                      @db.Text
+  instructions         String?                     @db.Text
+  answerSchema         Json                        @db.JsonB
+  scoringSchema        Json                        @db.JsonB
+  explanation          String?                     @db.Text
+  defaultMarks         Decimal                     @db.Decimal(9, 4)
+  defaultNegativeMarks Decimal                     @default(0) @db.Decimal(9, 4)
+  requiresManualReview Boolean                     @default(false)
+  estimatedSeconds     Int?
+  publishedAt          DateTime?                   @db.Timestamptz(6)
+  contentHash          String                      @db.Char(64)
+  createdAt            DateTime                    @default(now()) @db.Timestamptz(6)
+  updatedAt            DateTime                    @updatedAt @db.Timestamptz(6)
+  createdById          String?                     @db.Uuid
+  question             Question                    @relation("QuestionVersions", fields: [questionId], references: [id], onDelete: Restrict)
+  currentForQuestion   Question?                   @relation("CurrentQuestionVersion")
+  questionType         QuestionType                @relation(fields: [questionTypeId], references: [id], onDelete: Restrict)
+  options              QuestionOption[]
+  answerTargets        QuestionAnswerTarget[]
+  media                QuestionVersionMedia[]
+  assessmentQuestions  AssessmentQuestion[]
+  paperQuestions       AssessmentPaperQuestion[]
+  attemptQuestions     AttemptQuestion[]
+  learningLinks        QuestionLearningMaterial[]
+  generatedBy          QuestionGenerationHistory[] @relation("GeneratedQuestionVersion")
+
+  @@unique([questionId, versionNumber])
+  @@unique([tenantId, contentHash])
+  @@index([tenantId, questionTypeId, status, publishedAt])
+  @@schema("content")
+}
+
+model QuestionOption {
+  id                  String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId            String             @db.Uuid
+  questionVersionId   String             @db.Uuid
+  mediaAssetVersionId String?            @db.Uuid
+  optionKey           String             @db.VarChar(40)
+  label               String?            @db.Text
+  answerValue         Json?              @db.JsonB
+  isCorrect           Boolean            @default(false)
+  scoreWeight         Decimal            @default(1) @db.Decimal(9, 4)
+  sortOrder           Int
+  createdAt           DateTime           @default(now()) @db.Timestamptz(6)
+  updatedAt           DateTime           @updatedAt @db.Timestamptz(6)
+  questionVersion     QuestionVersion    @relation(fields: [questionVersionId], references: [id], onDelete: Restrict)
+  mediaAssetVersion   MediaAssetVersion? @relation(fields: [mediaAssetVersionId], references: [id], onDelete: Restrict)
+
+  @@unique([questionVersionId, optionKey])
+  @@index([tenantId, questionVersionId, sortOrder])
+  @@schema("content")
+}
+
+model QuestionAnswerTarget {
+  id                 String               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId           String               @db.Uuid
+  questionVersionId  String               @db.Uuid
+  qualityCriterionId String?              @db.Uuid
+  targetKey          String               @db.VarChar(80)
+  targetType         String               @db.VarChar(40)
+  label              String               @db.VarChar(255)
+  targetData         Json                 @db.JsonB
+  marks              Decimal              @db.Decimal(9, 4)
+  negativeMarks      Decimal              @default(0) @db.Decimal(9, 4)
+  severity           Int?                 @db.SmallInt
+  sortOrder          Int                  @default(0)
+  createdAt          DateTime             @default(now()) @db.Timestamptz(6)
+  updatedAt          DateTime             @updatedAt @db.Timestamptz(6)
+  questionVersion    QuestionVersion      @relation(fields: [questionVersionId], references: [id], onDelete: Restrict)
+  qualityCriterion   QualityCriterion?    @relation(fields: [qualityCriterionId], references: [id], onDelete: Restrict)
+  evaluations        ResponseEvaluation[]
+
+  @@unique([questionVersionId, targetKey])
+  @@index([tenantId, qualityCriterionId])
+  @@schema("content")
+}
+
+model QuestionVersionMedia {
+  tenantId            String            @db.Uuid
+  questionVersionId   String            @db.Uuid
+  mediaAssetVersionId String            @db.Uuid
+  role                String            @db.VarChar(40)
+  sortOrder           Int               @default(0)
+  annotations         Json?             @db.JsonB
+  createdAt           DateTime          @default(now()) @db.Timestamptz(6)
+  updatedAt           DateTime          @updatedAt @db.Timestamptz(6)
+  questionVersion     QuestionVersion   @relation(fields: [questionVersionId], references: [id], onDelete: Restrict)
+  mediaAssetVersion   MediaAssetVersion @relation(fields: [mediaAssetVersionId], references: [id], onDelete: Restrict)
+
+  @@id([questionVersionId, mediaAssetVersionId, role])
+  @@index([tenantId, mediaAssetVersionId])
+  @@schema("content")
+}
+
+model QuestionTag {
+  tenantId   String   @db.Uuid
+  questionId String   @db.Uuid
+  tagId      String   @db.Uuid
+  createdAt  DateTime @default(now()) @db.Timestamptz(6)
+  updatedAt  DateTime @updatedAt @db.Timestamptz(6)
+  question   Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  tag        Tag      @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@id([questionId, tagId])
+  @@index([tenantId, tagId])
+  @@schema("content")
+}
+
+model LearningMaterial {
+  id               String                    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId         String                    @db.Uuid
+  categoryId       String?                   @db.Uuid
+  code             String                    @db.VarChar(100)
+  title            String                    @db.VarChar(255)
+  contentType      LearningContentType
+  status           RecordStatus              @default(DRAFT)
+  currentVersionId String?                   @unique @db.Uuid
+  createdAt        DateTime                  @default(now()) @db.Timestamptz(6)
+  updatedAt        DateTime                  @updatedAt @db.Timestamptz(6)
+  createdById      String?                   @db.Uuid
+  updatedById      String?                   @db.Uuid
+  deletedAt        DateTime?                 @db.Timestamptz(6)
+  deletedById      String?                   @db.Uuid
+  rowVersion       Int                       @default(1)
+  tenant           Tenant                    @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  category         AssessmentCategory?       @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  currentVersion   LearningMaterialVersion?  @relation("CurrentMaterialVersion", fields: [currentVersionId], references: [id], onDelete: Restrict)
+  versions         LearningMaterialVersion[] @relation("MaterialVersions")
+
+  @@unique([tenantId, code])
+  @@index([tenantId, categoryId, status, deletedAt])
+  @@schema("learning")
+}
+
+model LearningMaterialVersion {
+  id                  String                     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId            String                     @db.Uuid
+  materialId          String                     @db.Uuid
+  mediaAssetVersionId String?                    @db.Uuid
+  versionNumber       Int
+  status              VersionStatus              @default(DRAFT)
+  body                Json                       @db.JsonB
+  sourceUrl           String?                    @db.VarChar(2048)
+  durationSeconds     Int?
+  contentHash         String                     @db.Char(64)
+  publishedAt         DateTime?                  @db.Timestamptz(6)
+  createdAt           DateTime                   @default(now()) @db.Timestamptz(6)
+  updatedAt           DateTime                   @updatedAt @db.Timestamptz(6)
+  createdById         String?                    @db.Uuid
+  material            LearningMaterial           @relation("MaterialVersions", fields: [materialId], references: [id], onDelete: Restrict)
+  currentForMaterial  LearningMaterial?          @relation("CurrentMaterialVersion")
+  mediaAssetVersion   MediaAssetVersion?         @relation(fields: [mediaAssetVersionId], references: [id], onDelete: Restrict)
+  pathItems           LearningPathItem[]
+  questionLinks       QuestionLearningMaterial[]
+
+  @@unique([materialId, versionNumber])
+  @@unique([tenantId, contentHash])
+  @@index([tenantId, status, publishedAt])
+  @@schema("learning")
+}
+
+model QuestionLearningMaterial {
+  tenantId                  String                  @db.Uuid
+  questionVersionId         String                  @db.Uuid
+  learningMaterialVersionId String                  @db.Uuid
+  relationType              String                  @default("REMEDIATION") @db.VarChar(40)
+  sortOrder                 Int                     @default(0)
+  createdAt                 DateTime                @default(now()) @db.Timestamptz(6)
+  updatedAt                 DateTime                @updatedAt @db.Timestamptz(6)
+  questionVersion           QuestionVersion         @relation(fields: [questionVersionId], references: [id], onDelete: Restrict)
+  learningMaterialVersion   LearningMaterialVersion @relation(fields: [learningMaterialVersionId], references: [id], onDelete: Restrict)
+
+  @@id([questionVersionId, learningMaterialVersionId])
+  @@index([tenantId, learningMaterialVersionId])
+  @@schema("learning")
+}
+
+model AssessmentDefinition {
+  id                String               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId          String               @db.Uuid
+  categoryId        String?              @db.Uuid
+  difficultyLevelId String?              @db.Uuid
+  code              String               @db.VarChar(100)
+  title             String               @db.VarChar(255)
+  description       String?              @db.Text
+  status            AssessmentStatus     @default(DRAFT)
+  currentVersionId  String?              @unique @db.Uuid
+  createdAt         DateTime             @default(now()) @db.Timestamptz(6)
+  updatedAt         DateTime             @updatedAt @db.Timestamptz(6)
+  createdById       String?              @db.Uuid
+  updatedById       String?              @db.Uuid
+  deletedAt         DateTime?            @db.Timestamptz(6)
+  deletedById       String?              @db.Uuid
+  rowVersion        Int                  @default(1)
+  tenant            Tenant               @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  category          AssessmentCategory?  @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  difficultyLevel   DifficultyLevel?     @relation(fields: [difficultyLevelId], references: [id], onDelete: Restrict)
+  currentVersion    AssessmentVersion?   @relation("CurrentAssessmentVersion", fields: [currentVersionId], references: [id], onDelete: Restrict)
+  versions          AssessmentVersion[]  @relation("AssessmentVersions")
+  schedules         AssessmentSchedule[]
+
+  @@unique([tenantId, code])
+  @@index([tenantId, status, categoryId, deletedAt])
+  @@schema("assessment")
+}
+
+model AssessmentVersion {
+  id                      String                       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId                String                       @db.Uuid
+  assessmentId            String                       @db.Uuid
+  versionNumber           Int
+  status                  VersionStatus                @default(DRAFT)
+  title                   String                       @db.VarChar(255)
+  description             String?                      @db.Text
+  instructions            String?                      @db.Text
+  totalMarks              Decimal                      @db.Decimal(12, 4)
+  passingMarks            Decimal                      @db.Decimal(12, 4)
+  durationSeconds         Int?
+  perQuestionTimeLimit    Int?
+  maxAttempts             Int                          @default(1)
+  negativeMarkingEnabled  Boolean                      @default(false)
+  shuffleQuestions        Boolean                      @default(false)
+  shuffleOptions          Boolean                      @default(false)
+  autoSaveIntervalSeconds Int                          @default(15)
+  allowResume             Boolean                      @default(true)
+  resultVisibility        String                       @default("AFTER_PUBLISH") @db.VarChar(40)
+  antiCheatingPolicy      Json?                        @db.JsonB
+  retakePolicy            Json?                        @db.JsonB
+  configuration           Json?                        @db.JsonB
+  contentHash             String                       @db.Char(64)
+  publishedAt             DateTime?                    @db.Timestamptz(6)
+  createdAt               DateTime                     @default(now()) @db.Timestamptz(6)
+  updatedAt               DateTime                     @updatedAt @db.Timestamptz(6)
+  createdById             String?                      @db.Uuid
+  assessment              AssessmentDefinition         @relation("AssessmentVersions", fields: [assessmentId], references: [id], onDelete: Restrict)
+  currentForAssessment    AssessmentDefinition?        @relation("CurrentAssessmentVersion")
+  sections                AssessmentSection[]
+  questions               AssessmentQuestion[]
+  poolRules               QuestionPoolRule[]
+  campaigns               AssignmentCampaign[]
+  assignments             AssessmentAssignment[]
+  papers                  AssessmentPaper[]
+  recruitmentStages       RecruitmentDriveAssessment[]
+  learningPathItems       LearningPathItem[]
+
+  @@unique([assessmentId, versionNumber])
+  @@unique([tenantId, contentHash])
+  @@index([tenantId, status, publishedAt])
+  @@schema("assessment")
+}
+
+model AssessmentSection {
+  id                  String               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId            String               @db.Uuid
+  assessmentVersionId String               @db.Uuid
+  title               String               @db.VarChar(200)
+  instructions        String?              @db.Text
+  sortOrder           Int
+  durationSeconds     Int?
+  questionCount       Int?
+  marks               Decimal?             @db.Decimal(12, 4)
+  createdAt           DateTime             @default(now()) @db.Timestamptz(6)
+  updatedAt           DateTime             @updatedAt @db.Timestamptz(6)
+  assessmentVersion   AssessmentVersion    @relation(fields: [assessmentVersionId], references: [id], onDelete: Restrict)
+  questions           AssessmentQuestion[]
+  poolRules           QuestionPoolRule[]
+
+  @@unique([assessmentVersionId, sortOrder])
+  @@index([tenantId, assessmentVersionId])
+  @@schema("assessment")
+}
+
+model AssessmentQuestion {
+  id                    String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId              String             @db.Uuid
+  assessmentVersionId   String             @db.Uuid
+  sectionId             String?            @db.Uuid
+  questionVersionId     String             @db.Uuid
+  sortOrder             Int
+  marksOverride         Decimal?           @db.Decimal(9, 4)
+  negativeMarksOverride Decimal?           @db.Decimal(9, 4)
+  required              Boolean            @default(true)
+  createdAt             DateTime           @default(now()) @db.Timestamptz(6)
+  updatedAt             DateTime           @updatedAt @db.Timestamptz(6)
+  assessmentVersion     AssessmentVersion  @relation(fields: [assessmentVersionId], references: [id], onDelete: Restrict)
+  section               AssessmentSection? @relation(fields: [sectionId], references: [id], onDelete: Restrict)
+  questionVersion       QuestionVersion    @relation(fields: [questionVersionId], references: [id], onDelete: Restrict)
+
+  @@unique([assessmentVersionId, questionVersionId])
+  @@index([tenantId, assessmentVersionId, sortOrder])
+  @@index([tenantId, questionVersionId])
+  @@schema("assessment")
+}
+
+model QuestionPoolRule {
+  id                  String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId            String             @db.Uuid
+  assessmentVersionId String             @db.Uuid
+  sectionId           String?            @db.Uuid
+  name                String             @db.VarChar(160)
+  selectionCount      Int
+  filter              Json               @db.JsonB
+  sortOrder           Int                @default(0)
+  seedStrategy        String             @default("PER_ASSIGNMENT") @db.VarChar(40)
+  createdAt           DateTime           @default(now()) @db.Timestamptz(6)
+  updatedAt           DateTime           @updatedAt @db.Timestamptz(6)
+  assessmentVersion   AssessmentVersion  @relation(fields: [assessmentVersionId], references: [id], onDelete: Restrict)
+  section             AssessmentSection? @relation(fields: [sectionId], references: [id], onDelete: Restrict)
+
+  @@unique([assessmentVersionId, name])
+  @@index([tenantId, assessmentVersionId])
+  @@schema("assessment")
+}
+
+model AssessmentSchedule {
+  id                 String                 @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId           String                 @db.Uuid
+  assessmentId       String                 @db.Uuid
+  name               String                 @db.VarChar(200)
+  frequency          ScheduleFrequency
+  recurrenceRule     String?                @db.VarChar(1000)
+  timeZone           String                 @db.VarChar(64)
+  startsAt           DateTime               @db.Timestamptz(6)
+  endsAt             DateTime?              @db.Timestamptz(6)
+  openOffsetMinutes  Int                    @default(0)
+  closeOffsetMinutes Int
+  includeNewJoiners  Boolean                @default(true)
+  missedWorkPolicy   MissedWorkPolicy       @default(MARK_ABSENT)
+  reminderPolicy     Json?                  @db.JsonB
+  escalationPolicy   Json?                  @db.JsonB
+  status             RecordStatus           @default(DRAFT)
+  createdAt          DateTime               @default(now()) @db.Timestamptz(6)
+  updatedAt          DateTime               @updatedAt @db.Timestamptz(6)
+  createdById        String?                @db.Uuid
+  updatedById        String?                @db.Uuid
+  deletedAt          DateTime?              @db.Timestamptz(6)
+  deletedById        String?                @db.Uuid
+  rowVersion         Int                    @default(1)
+  assessment         AssessmentDefinition   @relation(fields: [assessmentId], references: [id], onDelete: Restrict)
+  targets            ScheduleTarget[]
+  blackoutDates      ScheduleBlackoutDate[]
+  cycles             AssessmentCycle[]
+
+  @@index([tenantId, status, startsAt, endsAt])
+  @@index([tenantId, assessmentId])
+  @@schema("assessment")
+}
+
+model ScheduleTarget {
+  id         String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId   String             @db.Uuid
+  scheduleId String             @db.Uuid
+  scopeType  TargetScopeType
+  targetId   String?            @db.Uuid
+  filter     Json?              @db.JsonB
+  createdAt  DateTime           @default(now()) @db.Timestamptz(6)
+  updatedAt  DateTime           @updatedAt @db.Timestamptz(6)
+  schedule   AssessmentSchedule @relation(fields: [scheduleId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, scheduleId, scopeType])
+  @@index([tenantId, scopeType, targetId])
+  @@schema("assessment")
+}
+
+model ScheduleBlackoutDate {
+  id         String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId   String             @db.Uuid
+  scheduleId String             @db.Uuid
+  localDate  DateTime           @db.Date
+  reason     String?            @db.VarChar(255)
+  createdAt  DateTime           @default(now()) @db.Timestamptz(6)
+  updatedAt  DateTime           @updatedAt @db.Timestamptz(6)
+  schedule   AssessmentSchedule @relation(fields: [scheduleId], references: [id], onDelete: Cascade)
+
+  @@unique([scheduleId, localDate])
+  @@index([tenantId, localDate])
+  @@schema("assessment")
+}
+
+model AssessmentCycle {
+  id             String               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId       String               @db.Uuid
+  scheduleId     String               @db.Uuid
+  cycleKey       String               @db.VarChar(100)
+  sequenceNumber Int
+  status         CycleStatus          @default(PLANNED)
+  opensAt        DateTime             @db.Timestamptz(6)
+  closesAt       DateTime             @db.Timestamptz(6)
+  resultsAt      DateTime?            @db.Timestamptz(6)
+  createdAt      DateTime             @default(now()) @db.Timestamptz(6)
+  updatedAt      DateTime             @updatedAt @db.Timestamptz(6)
+  createdById    String?              @db.Uuid
+  schedule       AssessmentSchedule   @relation(fields: [scheduleId], references: [id], onDelete: Restrict)
+  campaigns      AssignmentCampaign[]
+
+  @@unique([scheduleId, cycleKey])
+  @@unique([scheduleId, sequenceNumber])
+  @@index([tenantId, status, opensAt, closesAt])
+  @@schema("assessment")
+}
+
+model AssignmentCampaign {
+  id                  String                  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId            String                  @db.Uuid
+  assessmentVersionId String                  @db.Uuid
+  cycleId             String?                 @db.Uuid
+  source              AssignmentSource
+  name                String                  @db.VarChar(200)
+  opensAt             DateTime                @db.Timestamptz(6)
+  dueAt               DateTime                @db.Timestamptz(6)
+  closesAt            DateTime?               @db.Timestamptz(6)
+  maxAttempts         Int
+  settings            Json?                   @db.JsonB
+  createdAt           DateTime                @default(now()) @db.Timestamptz(6)
+  updatedAt           DateTime                @updatedAt @db.Timestamptz(6)
+  createdById         String?                 @db.Uuid
+  assessmentVersion   AssessmentVersion       @relation(fields: [assessmentVersionId], references: [id], onDelete: Restrict)
+  cycle               AssessmentCycle?        @relation(fields: [cycleId], references: [id], onDelete: Restrict)
+  targetScopes        AssignmentTargetScope[]
+  assignments         AssessmentAssignment[]
+
+  @@index([tenantId, source, opensAt, dueAt])
+  @@index([tenantId, cycleId])
+  @@schema("assessment")
+}
+
+model AssignmentTargetScope {
+  id         String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId   String             @db.Uuid
+  campaignId String             @db.Uuid
+  scopeType  TargetScopeType
+  targetId   String?            @db.Uuid
+  filter     Json?              @db.JsonB
+  createdAt  DateTime           @default(now()) @db.Timestamptz(6)
+  updatedAt  DateTime           @updatedAt @db.Timestamptz(6)
+  campaign   AssignmentCampaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, campaignId, scopeType])
+  @@index([tenantId, scopeType, targetId])
+  @@schema("assessment")
+}
+
+model AssessmentAssignment {
+  id                     String                @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId               String                @db.Uuid
+  campaignId             String?               @db.Uuid
+  assessmentVersionId    String                @db.Uuid
+  membershipId           String?               @db.Uuid
+  candidateApplicationId String?               @db.Uuid
+  source                 AssignmentSource
+  status                 AssignmentStatus      @default(PENDING)
+  availableAt            DateTime              @db.Timestamptz(6)
+  dueAt                  DateTime              @db.Timestamptz(6)
+  closesAt               DateTime?             @db.Timestamptz(6)
+  maxAttempts            Int
+  attemptCount           Int                   @default(0)
+  completedAt            DateTime?             @db.Timestamptz(6)
+  createdAt              DateTime              @default(now()) @db.Timestamptz(6)
+  updatedAt              DateTime              @updatedAt @db.Timestamptz(6)
+  createdById            String?               @db.Uuid
+  rowVersion             Int                   @default(1)
+  campaign               AssignmentCampaign?   @relation(fields: [campaignId], references: [id], onDelete: Restrict)
+  assessmentVersion      AssessmentVersion     @relation(fields: [assessmentVersionId], references: [id], onDelete: Restrict)
+  membership             TenantMembership?     @relation(fields: [membershipId], references: [id], onDelete: Restrict)
+  candidateApplication   CandidateApplication? @relation(fields: [candidateApplicationId], references: [id], onDelete: Restrict)
+  paper                  AssessmentPaper?
+  attempts               AssessmentAttempt[]
+  retakeGrants           RetakeGrant[]
+
+  @@index([tenantId, membershipId, status, dueAt])
+  @@index([tenantId, candidateApplicationId, status])
+  @@index([tenantId, campaignId, status])
+  @@schema("assessment")
+}
+
+model AssessmentPaper {
+  id                  String                    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId            String                    @db.Uuid
+  assignmentId        String                    @unique @db.Uuid
+  assessmentVersionId String                    @db.Uuid
+  randomSeed          String?                   @db.VarChar(128)
+  contentHash         String                    @db.Char(64)
+  totalMarks          Decimal                   @db.Decimal(12, 4)
+  generatedAt         DateTime                  @default(now()) @db.Timestamptz(6)
+  createdAt           DateTime                  @default(now()) @db.Timestamptz(6)
+  updatedAt           DateTime                  @updatedAt @db.Timestamptz(6)
+  assignment          AssessmentAssignment      @relation(fields: [assignmentId], references: [id], onDelete: Restrict)
+  assessmentVersion   AssessmentVersion         @relation(fields: [assessmentVersionId], references: [id], onDelete: Restrict)
+  questions           AssessmentPaperQuestion[]
+  attempts            AssessmentAttempt[]
+
+  @@unique([tenantId, contentHash])
+  @@index([tenantId, generatedAt])
+  @@schema("assessment")
+}
+
+model AssessmentPaperQuestion {
+  id                BigInt            @id @default(autoincrement())
+  tenantId          String            @db.Uuid
+  paperId           String            @db.Uuid
+  questionVersionId String            @db.Uuid
+  sectionOrder      Int               @default(0)
+  questionOrder     Int
+  optionOrder       Json?             @db.JsonB
+  maxMarks          Decimal           @db.Decimal(9, 4)
+  negativeMarks     Decimal           @default(0) @db.Decimal(9, 4)
+  createdAt         DateTime          @default(now()) @db.Timestamptz(6)
+  updatedAt         DateTime          @updatedAt @db.Timestamptz(6)
+  paper             AssessmentPaper   @relation(fields: [paperId], references: [id], onDelete: Restrict)
+  questionVersion   QuestionVersion   @relation(fields: [questionVersionId], references: [id], onDelete: Restrict)
+  attemptQuestions  AttemptQuestion[]
+
+  @@unique([paperId, questionOrder])
+  @@index([tenantId, questionVersionId])
+  @@schema("assessment")
+}
+
+model AssessmentAttempt {
+  id                     BigInt                  @id @default(autoincrement())
+  publicId               String                  @unique @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId               String                  @db.Uuid
+  assignmentId           String?                 @db.Uuid
+  paperId                String?                 @db.Uuid
+  membershipId           String?                 @db.Uuid
+  candidateApplicationId String?                 @db.Uuid
+  mode                   AttemptMode
+  status                 AttemptStatus           @default(CREATED)
+  attemptNumber          Int
+  startedAt              DateTime?               @db.Timestamptz(6)
+  submittedAt            DateTime?               @db.Timestamptz(6)
+  evaluatedAt            DateTime?               @db.Timestamptz(6)
+  publishedAt            DateTime?               @db.Timestamptz(6)
+  expiresAt              DateTime?               @db.Timestamptz(6)
+  lastSavedAt            DateTime?               @db.Timestamptz(6)
+  durationSeconds        Int?
+  rawScore               Decimal?                @db.Decimal(12, 4)
+  penaltyScore           Decimal                 @default(0) @db.Decimal(12, 4)
+  finalScore             Decimal?                @db.Decimal(12, 4)
+  percentage             Decimal?                @db.Decimal(7, 4)
+  passed                 Boolean?
+  scoreVersion           Int                     @default(1)
+  createdAt              DateTime                @default(now()) @db.Timestamptz(6)
+  updatedAt              DateTime                @updatedAt @db.Timestamptz(6)
+  rowVersion             Int                     @default(1)
+  assignment             AssessmentAssignment?   @relation(fields: [assignmentId], references: [id], onDelete: Restrict)
+  paper                  AssessmentPaper?        @relation(fields: [paperId], references: [id], onDelete: Restrict)
+  membership             TenantMembership?       @relation(fields: [membershipId], references: [id], onDelete: Restrict)
+  candidateApplication   CandidateApplication?   @relation(fields: [candidateApplicationId], references: [id], onDelete: Restrict)
+  questions              AttemptQuestion[]
+  categoryResults        AttemptCategoryResult[]
+  integrityEvents        IntegrityEvent[]
+  certificates           Certificate[]
+  aiEvaluations          AIEvaluationHistory[]
+
+  @@unique([assignmentId, attemptNumber])
+  @@index([tenantId, membershipId, createdAt])
+  @@index([tenantId, candidateApplicationId, createdAt])
+  @@index([tenantId, status, submittedAt])
+  @@index([tenantId, assignmentId, status])
+  @@index([createdAt], type: Brin)
+  @@schema("assessment")
+}
+
+model AttemptQuestion {
+  id                BigInt                   @id @default(autoincrement())
+  tenantId          String                   @db.Uuid
+  attemptId         BigInt
+  paperQuestionId   BigInt?
+  questionVersionId String                   @db.Uuid
+  questionOrder     Int
+  maxMarks          Decimal                  @db.Decimal(9, 4)
+  status            EvaluationStatus         @default(PENDING)
+  score             Decimal?                 @db.Decimal(9, 4)
+  penalty           Decimal                  @default(0) @db.Decimal(9, 4)
+  timeSpentSeconds  Int                      @default(0)
+  firstViewedAt     DateTime?                @db.Timestamptz(6)
+  answeredAt        DateTime?                @db.Timestamptz(6)
+  createdAt         DateTime                 @default(now()) @db.Timestamptz(6)
+  updatedAt         DateTime                 @updatedAt @db.Timestamptz(6)
+  rowVersion        Int                      @default(1)
+  attempt           AssessmentAttempt        @relation(fields: [attemptId], references: [id], onDelete: Restrict)
+  paperQuestion     AssessmentPaperQuestion? @relation(fields: [paperQuestionId], references: [id], onDelete: Restrict)
+  questionVersion   QuestionVersion          @relation(fields: [questionVersionId], references: [id], onDelete: Restrict)
+  response          AttemptResponse?
+  evaluations       ResponseEvaluation[]
+  manualReviews     ManualReview[]
+
+  @@unique([attemptId, questionOrder])
+  @@index([tenantId, questionVersionId, createdAt])
+  @@index([tenantId, status, updatedAt])
+  @@schema("assessment")
+}
+
+model AttemptResponse {
+  id                BigInt          @id @default(autoincrement())
+  tenantId          String          @db.Uuid
+  attemptQuestionId BigInt          @unique
+  answer            Json            @db.JsonB
+  answerHash        String          @db.Char(64)
+  clientSequence    Int             @default(0)
+  savedAt           DateTime        @db.Timestamptz(6)
+  submittedAt       DateTime?       @db.Timestamptz(6)
+  createdAt         DateTime        @default(now()) @db.Timestamptz(6)
+  updatedAt         DateTime        @updatedAt @db.Timestamptz(6)
+  rowVersion        Int             @default(1)
+  attemptQuestion   AttemptQuestion @relation(fields: [attemptQuestionId], references: [id], onDelete: Restrict)
+
+  @@index([tenantId, savedAt])
+  @@index([createdAt], type: Brin)
+  @@schema("assessment")
+}
+
+model ResponseEvaluation {
+  id                 BigInt                @id @default(autoincrement())
+  tenantId           String                @db.Uuid
+  attemptQuestionId  BigInt
+  answerTargetId     String?               @db.Uuid
+  qualityCriterionId String?               @db.Uuid
+  evaluationVersion  Int
+  evaluatorType      String                @db.VarChar(40)
+  evaluatorRef       String?               @db.VarChar(255)
+  status             EvaluationStatus
+  detected           Boolean?
+  confidence         Decimal?              @db.Decimal(7, 6)
+  score              Decimal               @db.Decimal(9, 4)
+  penalty            Decimal               @default(0) @db.Decimal(9, 4)
+  evidence           Json?                 @db.JsonB
+  rationale          String?               @db.Text
+  createdAt          DateTime              @default(now()) @db.Timestamptz(6)
+  updatedAt          DateTime              @updatedAt @db.Timestamptz(6)
+  attemptQuestion    AttemptQuestion       @relation(fields: [attemptQuestionId], references: [id], onDelete: Restrict)
+  answerTarget       QuestionAnswerTarget? @relation(fields: [answerTargetId], references: [id], onDelete: Restrict)
+  qualityCriterion   QualityCriterion?     @relation(fields: [qualityCriterionId], references: [id], onDelete: Restrict)
+
+  @@unique([attemptQuestionId, answerTargetId, evaluationVersion])
+  @@index([tenantId, qualityCriterionId, createdAt])
+  @@index([tenantId, status, createdAt])
+  @@index([createdAt], type: Brin)
+  @@schema("assessment")
+}
+
+model ManualReview {
+  id                   BigInt             @id @default(autoincrement())
+  tenantId             String             @db.Uuid
+  attemptQuestionId    BigInt
+  reviewerMembershipId String?            @db.Uuid
+  status               ManualReviewStatus @default(UNASSIGNED)
+  reviewRound          Int                @default(1)
+  assignedAt           DateTime?          @db.Timestamptz(6)
+  dueAt                DateTime?          @db.Timestamptz(6)
+  completedAt          DateTime?          @db.Timestamptz(6)
+  score                Decimal?           @db.Decimal(9, 4)
+  feedback             String?            @db.Text
+  rubric               Json?              @db.JsonB
+  createdAt            DateTime           @default(now()) @db.Timestamptz(6)
+  updatedAt            DateTime           @updatedAt @db.Timestamptz(6)
+  rowVersion           Int                @default(1)
+  attemptQuestion      AttemptQuestion    @relation(fields: [attemptQuestionId], references: [id], onDelete: Restrict)
+  reviewer             TenantMembership?  @relation(fields: [reviewerMembershipId], references: [id], onDelete: Restrict)
+
+  @@unique([attemptQuestionId, reviewRound])
+  @@index([tenantId, reviewerMembershipId, status, dueAt])
+  @@schema("assessment")
+}
+
+model AttemptCategoryResult {
+  id             BigInt             @id @default(autoincrement())
+  tenantId       String             @db.Uuid
+  attemptId      BigInt
+  categoryId     String             @db.Uuid
+  possible       Decimal            @db.Decimal(12, 4)
+  scored         Decimal            @db.Decimal(12, 4)
+  percentage     Decimal            @db.Decimal(7, 4)
+  correctCount   Int                @default(0)
+  incorrectCount Int                @default(0)
+  createdAt      DateTime           @default(now()) @db.Timestamptz(6)
+  updatedAt      DateTime           @updatedAt @db.Timestamptz(6)
+  attempt        AssessmentAttempt  @relation(fields: [attemptId], references: [id], onDelete: Restrict)
+  category       AssessmentCategory @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+
+  @@unique([attemptId, categoryId])
+  @@index([tenantId, categoryId, createdAt])
+  @@schema("assessment")
+}
+
+model IntegrityEvent {
+  id         BigInt             @id @default(autoincrement())
+  tenantId   String             @db.Uuid
+  attemptId  BigInt
+  eventType  IntegrityEventType
+  severity   Int                @db.SmallInt
+  occurredAt DateTime           @db.Timestamptz(6)
+  clientData Json?              @db.JsonB
+  createdAt  DateTime           @default(now()) @db.Timestamptz(6)
+  updatedAt  DateTime           @updatedAt @db.Timestamptz(6)
+  attempt    AssessmentAttempt  @relation(fields: [attemptId], references: [id], onDelete: Restrict)
+
+  @@index([tenantId, attemptId, occurredAt])
+  @@index([occurredAt], type: Brin)
+  @@schema("assessment")
+}
+
+model RetakeGrant {
+  id                 String               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId           String               @db.Uuid
+  assignmentId       String               @db.Uuid
+  additionalAttempts Int
+  reason             String               @db.VarChar(1000)
+  grantedById        String?              @db.Uuid
+  expiresAt          DateTime?            @db.Timestamptz(6)
+  createdAt          DateTime             @default(now()) @db.Timestamptz(6)
+  updatedAt          DateTime             @updatedAt @db.Timestamptz(6)
+  revokedAt          DateTime?            @db.Timestamptz(6)
+  assignment         AssessmentAssignment @relation(fields: [assignmentId], references: [id], onDelete: Restrict)
+
+  @@index([tenantId, assignmentId, expiresAt])
+  @@schema("assessment")
+}
+
+model LearningPath {
+  id               String                @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId         String                @db.Uuid
+  code             String                @db.VarChar(100)
+  title            String                @db.VarChar(255)
+  description      String?               @db.Text
+  status           RecordStatus          @default(DRAFT)
+  currentVersionId String?               @unique @db.Uuid
+  createdAt        DateTime              @default(now()) @db.Timestamptz(6)
+  updatedAt        DateTime              @updatedAt @db.Timestamptz(6)
+  createdById      String?               @db.Uuid
+  updatedById      String?               @db.Uuid
+  deletedAt        DateTime?             @db.Timestamptz(6)
+  deletedById      String?               @db.Uuid
+  rowVersion       Int                   @default(1)
+  tenant           Tenant                @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  currentVersion   LearningPathVersion?  @relation("CurrentPathVersion", fields: [currentVersionId], references: [id], onDelete: Restrict)
+  versions         LearningPathVersion[] @relation("PathVersions")
+
+  @@unique([tenantId, code])
+  @@index([tenantId, status, deletedAt])
+  @@schema("learning")
+}
+
+model LearningPathVersion {
+  id             String                   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId       String                   @db.Uuid
+  learningPathId String                   @db.Uuid
+  versionNumber  Int
+  status         VersionStatus            @default(DRAFT)
+  title          String                   @db.VarChar(255)
+  completionRule Json                     @db.JsonB
+  contentHash    String                   @db.Char(64)
+  publishedAt    DateTime?                @db.Timestamptz(6)
+  createdAt      DateTime                 @default(now()) @db.Timestamptz(6)
+  updatedAt      DateTime                 @updatedAt @db.Timestamptz(6)
+  createdById    String?                  @db.Uuid
+  learningPath   LearningPath             @relation("PathVersions", fields: [learningPathId], references: [id], onDelete: Restrict)
+  currentForPath LearningPath?            @relation("CurrentPathVersion")
+  items          LearningPathItem[]
+  assignments    LearningPathAssignment[]
+
+  @@unique([learningPathId, versionNumber])
+  @@unique([tenantId, contentHash])
+  @@index([tenantId, status, publishedAt])
+  @@schema("learning")
+}
+
+model LearningPathItem {
+  id                    String                   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId              String                   @db.Uuid
+  learningPathVersionId String                   @db.Uuid
+  materialVersionId     String?                  @db.Uuid
+  assessmentVersionId   String?                  @db.Uuid
+  itemType              String                   @db.VarChar(40)
+  title                 String                   @db.VarChar(255)
+  sortOrder             Int
+  required              Boolean                  @default(true)
+  completionRule        Json?                    @db.JsonB
+  createdAt             DateTime                 @default(now()) @db.Timestamptz(6)
+  updatedAt             DateTime                 @updatedAt @db.Timestamptz(6)
+  learningPathVersion   LearningPathVersion      @relation(fields: [learningPathVersionId], references: [id], onDelete: Restrict)
+  materialVersion       LearningMaterialVersion? @relation(fields: [materialVersionId], references: [id], onDelete: Restrict)
+  assessmentVersion     AssessmentVersion?       @relation(fields: [assessmentVersionId], references: [id], onDelete: Restrict)
+  progress              LearningItemProgress[]
+
+  @@unique([learningPathVersionId, sortOrder])
+  @@index([tenantId, materialVersionId])
+  @@index([tenantId, assessmentVersionId])
+  @@schema("learning")
+}
+
+model LearningPathAssignment {
+  id                    String                   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId              String                   @db.Uuid
+  learningPathVersionId String                   @db.Uuid
+  membershipId          String                   @db.Uuid
+  status                LearningAssignmentStatus @default(ASSIGNED)
+  assignedAt            DateTime                 @default(now()) @db.Timestamptz(6)
+  dueAt                 DateTime?                @db.Timestamptz(6)
+  completedAt           DateTime?                @db.Timestamptz(6)
+  source                String                   @default("MANUAL") @db.VarChar(40)
+  sourceRef             String?                  @db.VarChar(255)
+  createdAt             DateTime                 @default(now()) @db.Timestamptz(6)
+  updatedAt             DateTime                 @updatedAt @db.Timestamptz(6)
+  createdById           String?                  @db.Uuid
+  rowVersion            Int                      @default(1)
+  learningPathVersion   LearningPathVersion      @relation(fields: [learningPathVersionId], references: [id], onDelete: Restrict)
+  membership            TenantMembership         @relation(fields: [membershipId], references: [id], onDelete: Restrict)
+  progress              LearningProgress?
+  certificates          Certificate[]
+
+  @@unique([learningPathVersionId, membershipId, assignedAt])
+  @@index([tenantId, membershipId, status, dueAt])
+  @@schema("learning")
+}
+
+model LearningProgress {
+  id                       BigInt                 @id @default(autoincrement())
+  tenantId                 String                 @db.Uuid
+  learningPathAssignmentId String                 @unique @db.Uuid
+  membershipId             String                 @db.Uuid
+  status                   ProgressStatus         @default(NOT_STARTED)
+  completionPercent        Decimal                @default(0) @db.Decimal(7, 4)
+  startedAt                DateTime?              @db.Timestamptz(6)
+  completedAt              DateTime?              @db.Timestamptz(6)
+  lastActivityAt           DateTime?              @db.Timestamptz(6)
+  createdAt                DateTime               @default(now()) @db.Timestamptz(6)
+  updatedAt                DateTime               @updatedAt @db.Timestamptz(6)
+  rowVersion               Int                    @default(1)
+  assignment               LearningPathAssignment @relation(fields: [learningPathAssignmentId], references: [id], onDelete: Restrict)
+  membership               TenantMembership       @relation(fields: [membershipId], references: [id], onDelete: Restrict)
+  items                    LearningItemProgress[]
+
+  @@index([tenantId, membershipId, status, lastActivityAt])
+  @@schema("learning")
+}
+
+model LearningItemProgress {
+  id                 BigInt           @id @default(autoincrement())
+  tenantId           String           @db.Uuid
+  learningProgressId BigInt
+  pathItemId         String           @db.Uuid
+  status             ProgressStatus   @default(NOT_STARTED)
+  progressPercent    Decimal          @default(0) @db.Decimal(7, 4)
+  startedAt          DateTime?        @db.Timestamptz(6)
+  completedAt        DateTime?        @db.Timestamptz(6)
+  evidence           Json?            @db.JsonB
+  createdAt          DateTime         @default(now()) @db.Timestamptz(6)
+  updatedAt          DateTime         @updatedAt @db.Timestamptz(6)
+  rowVersion         Int              @default(1)
+  learningProgress   LearningProgress @relation(fields: [learningProgressId], references: [id], onDelete: Restrict)
+  pathItem           LearningPathItem @relation(fields: [pathItemId], references: [id], onDelete: Restrict)
+
+  @@unique([learningProgressId, pathItemId])
+  @@index([tenantId, status, updatedAt])
+  @@schema("learning")
+}
+
+model CertificateTemplate {
+  id           String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId     String        @db.Uuid
+  code         String        @db.VarChar(100)
+  name         String        @db.VarChar(200)
+  template     Json          @db.JsonB
+  validityDays Int?
+  status       RecordStatus  @default(ACTIVE)
+  createdAt    DateTime      @default(now()) @db.Timestamptz(6)
+  updatedAt    DateTime      @updatedAt @db.Timestamptz(6)
+  createdById  String?       @db.Uuid
+  updatedById  String?       @db.Uuid
+  deletedAt    DateTime?     @db.Timestamptz(6)
+  deletedById  String?       @db.Uuid
+  rowVersion   Int           @default(1)
+  certificates Certificate[]
+
+  @@unique([tenantId, code])
+  @@index([tenantId, status, deletedAt])
+  @@schema("learning")
+}
+
+model Certificate {
+  id                       String                  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId                 String                  @db.Uuid
+  templateId               String                  @db.Uuid
+  membershipId             String                  @db.Uuid
+  learningPathAssignmentId String?                 @db.Uuid
+  assessmentAttemptId      BigInt?
+  verificationCode         String                  @unique @db.VarChar(80)
+  status                   CertificateStatus       @default(ISSUED)
+  issuedAt                 DateTime                @db.Timestamptz(6)
+  expiresAt                DateTime?               @db.Timestamptz(6)
+  revokedAt                DateTime?               @db.Timestamptz(6)
+  snapshot                 Json                    @db.JsonB
+  createdAt                DateTime                @default(now()) @db.Timestamptz(6)
+  updatedAt                DateTime                @updatedAt @db.Timestamptz(6)
+  template                 CertificateTemplate     @relation(fields: [templateId], references: [id], onDelete: Restrict)
+  membership               TenantMembership        @relation(fields: [membershipId], references: [id], onDelete: Restrict)
+  learningPathAssignment   LearningPathAssignment? @relation(fields: [learningPathAssignmentId], references: [id], onDelete: Restrict)
+  assessmentAttempt        AssessmentAttempt?      @relation(fields: [assessmentAttemptId], references: [id], onDelete: Restrict)
+
+  @@index([tenantId, membershipId, status, issuedAt])
+  @@index([tenantId, expiresAt])
+  @@schema("learning")
+}
+
+model JobPosition {
+  id           String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId     String             @db.Uuid
+  departmentId String?            @db.Uuid
+  code         String             @db.VarChar(100)
+  title        String             @db.VarChar(200)
+  description  String?            @db.Text
+  status       RecordStatus       @default(ACTIVE)
+  createdAt    DateTime           @default(now()) @db.Timestamptz(6)
+  updatedAt    DateTime           @updatedAt @db.Timestamptz(6)
+  createdById  String?            @db.Uuid
+  updatedById  String?            @db.Uuid
+  deletedAt    DateTime?          @db.Timestamptz(6)
+  deletedById  String?            @db.Uuid
+  rowVersion   Int                @default(1)
+  drives       RecruitmentDrive[]
+
+  @@unique([tenantId, code])
+  @@index([tenantId, departmentId, status, deletedAt])
+  @@schema("recruitment")
+}
+
+model RecruitmentDrive {
+  id            String                       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId      String                       @db.Uuid
+  positionId    String                       @db.Uuid
+  code          String                       @db.VarChar(100)
+  title         String                       @db.VarChar(255)
+  status        RecruitmentDriveStatus       @default(DRAFT)
+  opensAt       DateTime?                    @db.Timestamptz(6)
+  closesAt      DateTime?                    @db.Timestamptz(6)
+  retentionDays Int                          @default(365)
+  settings      Json?                        @db.JsonB
+  createdAt     DateTime                     @default(now()) @db.Timestamptz(6)
+  updatedAt     DateTime                     @updatedAt @db.Timestamptz(6)
+  createdById   String?                      @db.Uuid
+  updatedById   String?                      @db.Uuid
+  deletedAt     DateTime?                    @db.Timestamptz(6)
+  deletedById   String?                      @db.Uuid
+  rowVersion    Int                          @default(1)
+  tenant        Tenant                       @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  position      JobPosition                  @relation(fields: [positionId], references: [id], onDelete: Restrict)
+  stages        RecruitmentDriveAssessment[]
+  applications  CandidateApplication[]
+
+  @@unique([tenantId, code])
+  @@index([tenantId, status, opensAt, closesAt])
+  @@schema("recruitment")
+}
+
+model RecruitmentDriveAssessment {
+  id                   String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId             String            @db.Uuid
+  driveId              String            @db.Uuid
+  assessmentVersionId  String            @db.Uuid
+  stageOrder           Int
+  stageName            String            @db.VarChar(160)
+  passingMarksOverride Decimal?          @db.Decimal(12, 4)
+  required             Boolean           @default(true)
+  createdAt            DateTime          @default(now()) @db.Timestamptz(6)
+  updatedAt            DateTime          @updatedAt @db.Timestamptz(6)
+  drive                RecruitmentDrive  @relation(fields: [driveId], references: [id], onDelete: Restrict)
+  assessmentVersion    AssessmentVersion @relation(fields: [assessmentVersionId], references: [id], onDelete: Restrict)
+
+  @@unique([driveId, stageOrder])
+  @@index([tenantId, assessmentVersionId])
+  @@schema("recruitment")
+}
+
+model CandidateProfile {
+  id                 String                 @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId           String                 @db.Uuid
+  externalRef        String?                @db.VarChar(160)
+  emailCiphertext    Bytes
+  emailHash          String                 @db.Char(64)
+  phoneCiphertext    Bytes?
+  fullNameCiphertext Bytes
+  status             CandidateStatus        @default(INVITED)
+  consentAt          DateTime?              @db.Timestamptz(6)
+  retentionUntil     DateTime               @db.Timestamptz(6)
+  anonymizedAt       DateTime?              @db.Timestamptz(6)
+  createdAt          DateTime               @default(now()) @db.Timestamptz(6)
+  updatedAt          DateTime               @updatedAt @db.Timestamptz(6)
+  createdById        String?                @db.Uuid
+  deletedAt          DateTime?              @db.Timestamptz(6)
+  rowVersion         Int                    @default(1)
+  tenant             Tenant                 @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  applications       CandidateApplication[]
+
+  @@unique([tenantId, emailHash])
+  @@unique([tenantId, externalRef])
+  @@index([tenantId, status, retentionUntil])
+  @@schema("recruitment")
+}
+
+model CandidateApplication {
+  id             String                     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId       String                     @db.Uuid
+  candidateId    String                     @db.Uuid
+  driveId        String                     @db.Uuid
+  status         ApplicationStatus          @default(APPLIED)
+  rank           Int?
+  aggregateScore Decimal?                   @db.Decimal(12, 4)
+  appliedAt      DateTime                   @default(now()) @db.Timestamptz(6)
+  completedAt    DateTime?                  @db.Timestamptz(6)
+  retentionUntil DateTime                   @db.Timestamptz(6)
+  createdAt      DateTime                   @default(now()) @db.Timestamptz(6)
+  updatedAt      DateTime                   @updatedAt @db.Timestamptz(6)
+  rowVersion     Int                        @default(1)
+  candidate      CandidateProfile           @relation(fields: [candidateId], references: [id], onDelete: Restrict)
+  drive          RecruitmentDrive           @relation(fields: [driveId], references: [id], onDelete: Restrict)
+  invitations    CandidateInvitation[]
+  decisions      CandidateDecisionHistory[]
+  assignments    AssessmentAssignment[]
+  attempts       AssessmentAttempt[]
+
+  @@unique([candidateId, driveId])
+  @@index([tenantId, driveId, status, rank])
+  @@index([tenantId, retentionUntil])
+  @@schema("recruitment")
+}
+
+model CandidateInvitation {
+  id            String               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId      String               @db.Uuid
+  applicationId String               @db.Uuid
+  tokenHash     String               @unique @db.Char(64)
+  sentAt        DateTime?            @db.Timestamptz(6)
+  expiresAt     DateTime             @db.Timestamptz(6)
+  acceptedAt    DateTime?            @db.Timestamptz(6)
+  revokedAt     DateTime?            @db.Timestamptz(6)
+  createdAt     DateTime             @default(now()) @db.Timestamptz(6)
+  updatedAt     DateTime             @updatedAt @db.Timestamptz(6)
+  application   CandidateApplication @relation(fields: [applicationId], references: [id], onDelete: Restrict)
+
+  @@index([tenantId, applicationId, expiresAt])
+  @@schema("recruitment")
+}
+
+model CandidateDecisionHistory {
+  id            BigInt               @id @default(autoincrement())
+  tenantId      String               @db.Uuid
+  applicationId String               @db.Uuid
+  decision      RecruitmentDecision
+  reason        String?              @db.Text
+  evidence      Json?                @db.JsonB
+  decidedById   String?              @db.Uuid
+  decidedAt     DateTime             @default(now()) @db.Timestamptz(6)
+  createdAt     DateTime             @default(now()) @db.Timestamptz(6)
+  updatedAt     DateTime             @updatedAt @db.Timestamptz(6)
+  application   CandidateApplication @relation(fields: [applicationId], references: [id], onDelete: Restrict)
+
+  @@index([tenantId, applicationId, decidedAt])
+  @@index([decidedAt], type: Brin)
+  @@schema("recruitment")
+}
+
+model LeaderboardDefinition {
+  id                     String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId               String              @db.Uuid
+  code                   String              @db.VarChar(100)
+  name                   String              @db.VarChar(200)
+  scope                  LeaderboardScope
+  scoringConfiguration   Json                @db.JsonB
+  exclusionConfiguration Json?               @db.JsonB
+  anonymizeEntries       Boolean             @default(false)
+  status                 RecordStatus        @default(ACTIVE)
+  createdAt              DateTime            @default(now()) @db.Timestamptz(6)
+  updatedAt              DateTime            @updatedAt @db.Timestamptz(6)
+  createdById            String?             @db.Uuid
+  updatedById            String?             @db.Uuid
+  deletedAt              DateTime?           @db.Timestamptz(6)
+  deletedById            String?             @db.Uuid
+  rowVersion             Int                 @default(1)
+  tenant                 Tenant              @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  periods                LeaderboardPeriod[]
+
+  @@unique([tenantId, code])
+  @@index([tenantId, status, scope, deletedAt])
+  @@schema("engagement")
+}
+
+model LeaderboardPeriod {
+  id              String                @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId        String                @db.Uuid
+  leaderboardId   String                @db.Uuid
+  periodKey       String                @db.VarChar(100)
+  startsAt        DateTime              @db.Timestamptz(6)
+  endsAt          DateTime              @db.Timestamptz(6)
+  finalizedAt     DateTime?             @db.Timestamptz(6)
+  sourceWatermark DateTime?             @db.Timestamptz(6)
+  createdAt       DateTime              @default(now()) @db.Timestamptz(6)
+  updatedAt       DateTime              @updatedAt @db.Timestamptz(6)
+  leaderboard     LeaderboardDefinition @relation(fields: [leaderboardId], references: [id], onDelete: Restrict)
+  entries         LeaderboardEntry[]
+
+  @@unique([leaderboardId, periodKey])
+  @@index([tenantId, startsAt, endsAt])
+  @@schema("engagement")
+}
+
+model LeaderboardEntry {
+  id           BigInt            @id @default(autoincrement())
+  tenantId     String            @db.Uuid
+  periodId     String            @db.Uuid
+  membershipId String            @db.Uuid
+  rank         Int
+  score        Decimal           @db.Decimal(19, 6)
+  previousRank Int?
+  metrics      Json              @db.JsonB
+  computedAt   DateTime          @db.Timestamptz(6)
+  createdAt    DateTime          @default(now()) @db.Timestamptz(6)
+  updatedAt    DateTime          @updatedAt @db.Timestamptz(6)
+  period       LeaderboardPeriod @relation(fields: [periodId], references: [id], onDelete: Restrict)
+  membership   TenantMembership  @relation(fields: [membershipId], references: [id], onDelete: Restrict)
+
+  @@unique([periodId, membershipId])
+  @@unique([periodId, rank])
+  @@index([tenantId, membershipId, computedAt])
+  @@schema("engagement")
+}
+
+model BadgeDefinition {
+  id                 String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId           String       @db.Uuid
+  code               String       @db.VarChar(100)
+  name               String       @db.VarChar(160)
+  description        String?      @db.Text
+  iconAssetVersionId String?      @db.Uuid
+  rule               Json         @db.JsonB
+  status             RecordStatus @default(ACTIVE)
+  createdAt          DateTime     @default(now()) @db.Timestamptz(6)
+  updatedAt          DateTime     @updatedAt @db.Timestamptz(6)
+  createdById        String?      @db.Uuid
+  updatedById        String?      @db.Uuid
+  deletedAt          DateTime?    @db.Timestamptz(6)
+  deletedById        String?      @db.Uuid
+  rowVersion         Int          @default(1)
+  tenant             Tenant       @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  awards             BadgeAward[]
+
+  @@unique([tenantId, code])
+  @@index([tenantId, status, deletedAt])
+  @@schema("engagement")
+}
+
+model BadgeAward {
+  id           String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId     String           @db.Uuid
+  badgeId      String           @db.Uuid
+  membershipId String           @db.Uuid
+  sourceType   String           @db.VarChar(80)
+  sourceId     String?          @db.VarChar(255)
+  evidence     Json?            @db.JsonB
+  awardedAt    DateTime         @default(now()) @db.Timestamptz(6)
+  revokedAt    DateTime?        @db.Timestamptz(6)
+  createdAt    DateTime         @default(now()) @db.Timestamptz(6)
+  updatedAt    DateTime         @updatedAt @db.Timestamptz(6)
+  badge        BadgeDefinition  @relation(fields: [badgeId], references: [id], onDelete: Restrict)
+  membership   TenantMembership @relation(fields: [membershipId], references: [id], onDelete: Restrict)
+
+  @@index([tenantId, membershipId, awardedAt])
+  @@index([tenantId, badgeId, revokedAt])
+  @@schema("engagement")
+}
+
+model RewardPointLedger {
+  id             BigInt           @id @default(autoincrement())
+  tenantId       String           @db.Uuid
+  membershipId   String           @db.Uuid
+  entryType      LedgerEntryType
+  points         Int
+  balanceAfter   Int
+  sourceType     String           @db.VarChar(80)
+  sourceId       String?          @db.VarChar(255)
+  idempotencyKey String           @db.VarChar(255)
+  expiresAt      DateTime?        @db.Timestamptz(6)
+  occurredAt     DateTime         @default(now()) @db.Timestamptz(6)
+  createdAt      DateTime         @default(now()) @db.Timestamptz(6)
+  updatedAt      DateTime         @updatedAt @db.Timestamptz(6)
+  membership     TenantMembership @relation(fields: [membershipId], references: [id], onDelete: Restrict)
+
+  @@unique([tenantId, idempotencyKey])
+  @@index([tenantId, membershipId, occurredAt])
+  @@index([occurredAt], type: Brin)
+  @@schema("engagement")
+}
+
+model RewardCatalogueItem {
+  id           String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId     String             @db.Uuid
+  rewardTypeId String             @db.Uuid
+  code         String             @db.VarChar(100)
+  name         String             @db.VarChar(200)
+  description  String?            @db.Text
+  pointsCost   Int
+  inventory    Int?
+  fulfillment  Json?              @db.JsonB
+  status       RecordStatus       @default(ACTIVE)
+  createdAt    DateTime           @default(now()) @db.Timestamptz(6)
+  updatedAt    DateTime           @updatedAt @db.Timestamptz(6)
+  createdById  String?            @db.Uuid
+  updatedById  String?            @db.Uuid
+  deletedAt    DateTime?          @db.Timestamptz(6)
+  deletedById  String?            @db.Uuid
+  rowVersion   Int                @default(1)
+  tenant       Tenant             @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  rewardType   RewardType         @relation(fields: [rewardTypeId], references: [id], onDelete: Restrict)
+  redemptions  RewardRedemption[]
+
+  @@unique([tenantId, code])
+  @@index([tenantId, status, deletedAt])
+  @@schema("engagement")
+}
+
+model RewardRedemption {
+  id              String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId        String              @db.Uuid
+  catalogueItemId String              @db.Uuid
+  membershipId    String              @db.Uuid
+  status          RedemptionStatus    @default(REQUESTED)
+  pointsReserved  Int
+  requestedAt     DateTime            @default(now()) @db.Timestamptz(6)
+  decidedAt       DateTime?           @db.Timestamptz(6)
+  fulfilledAt     DateTime?           @db.Timestamptz(6)
+  decisionReason  String?             @db.Text
+  fulfillmentRef  String?             @db.VarChar(255)
+  createdAt       DateTime            @default(now()) @db.Timestamptz(6)
+  updatedAt       DateTime            @updatedAt @db.Timestamptz(6)
+  rowVersion      Int                 @default(1)
+  catalogueItem   RewardCatalogueItem @relation(fields: [catalogueItemId], references: [id], onDelete: Restrict)
+  membership      TenantMembership    @relation(fields: [membershipId], references: [id], onDelete: Restrict)
+
+  @@index([tenantId, membershipId, status, requestedAt])
+  @@index([tenantId, catalogueItemId, status])
+  @@schema("engagement")
+}
+
+model NotificationTemplate {
+  id           String                 @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId     String                 @db.Uuid
+  key          String                 @db.VarChar(120)
+  channel      NotificationChannel
+  locale       String                 @default("en") @db.VarChar(16)
+  subject      String?                @db.VarChar(500)
+  bodyTemplate String                 @db.Text
+  version      Int                    @default(1)
+  status       RecordStatus           @default(ACTIVE)
+  createdAt    DateTime               @default(now()) @db.Timestamptz(6)
+  updatedAt    DateTime               @updatedAt @db.Timestamptz(6)
+  createdById  String?                @db.Uuid
+  updatedById  String?                @db.Uuid
+  deletedAt    DateTime?              @db.Timestamptz(6)
+  deletedById  String?                @db.Uuid
+  rowVersion   Int                    @default(1)
+  tenant       Tenant                 @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  deliveries   NotificationDelivery[]
+
+  @@unique([tenantId, key, channel, locale, version])
+  @@index([tenantId, status, key])
+  @@schema("communications")
+}
+
+model NotificationPreference {
+  id           String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId     String           @db.Uuid
+  membershipId String           @unique @db.Uuid
+  preferences  Json             @db.JsonB
+  quietHours   Json?            @db.JsonB
+  createdAt    DateTime         @default(now()) @db.Timestamptz(6)
+  updatedAt    DateTime         @updatedAt @db.Timestamptz(6)
+  rowVersion   Int              @default(1)
+  tenant       Tenant           @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  membership   TenantMembership @relation(fields: [membershipId], references: [id], onDelete: Restrict)
+
+  @@index([tenantId, updatedAt])
+  @@schema("communications")
+}
+
+model NotificationDelivery {
+  id                    BigInt                @id @default(autoincrement())
+  tenantId              String                @db.Uuid
+  templateId            String?               @db.Uuid
+  recipientMembershipId String?               @db.Uuid
+  channel               NotificationChannel
+  destinationHash       String                @db.Char(64)
+  deduplicationKey      String                @db.VarChar(255)
+  payload               Json                  @db.JsonB
+  status                DeliveryStatus        @default(PENDING)
+  attemptCount          Int                   @default(0)
+  nextAttemptAt         DateTime?             @db.Timestamptz(6)
+  sentAt                DateTime?             @db.Timestamptz(6)
+  deliveredAt           DateTime?             @db.Timestamptz(6)
+  failureCode           String?               @db.VarChar(160)
+  providerMessageId     String?               @db.VarChar(255)
+  createdAt             DateTime              @default(now()) @db.Timestamptz(6)
+  updatedAt             DateTime              @updatedAt @db.Timestamptz(6)
+  template              NotificationTemplate? @relation(fields: [templateId], references: [id], onDelete: Restrict)
+  recipient             TenantMembership?     @relation(fields: [recipientMembershipId], references: [id], onDelete: Restrict)
+
+  @@unique([tenantId, deduplicationKey])
+  @@index([tenantId, status, nextAttemptAt])
+  @@index([tenantId, recipientMembershipId, createdAt])
+  @@index([createdAt], type: Brin)
+  @@schema("communications")
+}
+
+model ReportDefinition {
+  id          String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId    String       @db.Uuid
+  code        String       @db.VarChar(100)
+  name        String       @db.VarChar(200)
+  reportType  String       @db.VarChar(100)
+  querySpec   Json         @db.JsonB
+  schedule    Json?        @db.JsonB
+  recipients  Json?        @db.JsonB
+  status      RecordStatus @default(ACTIVE)
+  createdAt   DateTime     @default(now()) @db.Timestamptz(6)
+  updatedAt   DateTime     @updatedAt @db.Timestamptz(6)
+  createdById String?      @db.Uuid
+  updatedById String?      @db.Uuid
+  deletedAt   DateTime?    @db.Timestamptz(6)
+  deletedById String?      @db.Uuid
+  rowVersion  Int          @default(1)
+  tenant      Tenant       @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  runs        ReportRun[]
+
+  @@unique([tenantId, code])
+  @@index([tenantId, status, deletedAt])
+  @@schema("communications")
+}
+
+model ReportRun {
+  id                   BigInt           @id @default(autoincrement())
+  tenantId             String           @db.Uuid
+  reportDefinitionId   String           @db.Uuid
+  status               ReportRunStatus  @default(QUEUED)
+  parameters           Json             @db.JsonB
+  sourceWatermark      DateTime?        @db.Timestamptz(6)
+  outputAssetVersionId String?          @db.Uuid
+  requestedAt          DateTime         @default(now()) @db.Timestamptz(6)
+  startedAt            DateTime?        @db.Timestamptz(6)
+  completedAt          DateTime?        @db.Timestamptz(6)
+  expiresAt            DateTime?        @db.Timestamptz(6)
+  failureCode          String?          @db.VarChar(160)
+  createdAt            DateTime         @default(now()) @db.Timestamptz(6)
+  updatedAt            DateTime         @updatedAt @db.Timestamptz(6)
+  definition           ReportDefinition @relation(fields: [reportDefinitionId], references: [id], onDelete: Restrict)
+
+  @@index([tenantId, status, requestedAt])
+  @@index([requestedAt], type: Brin)
+  @@schema("communications")
+}
+
+model EmployeeMetricPeriod {
+  id              BigInt           @id @default(autoincrement())
+  tenantId        String           @db.Uuid
+  membershipId    String           @db.Uuid
+  periodStart     DateTime         @db.Date
+  periodEnd       DateTime         @db.Date
+  metricVersion   Int
+  attempts        Int              @default(0)
+  averageScore    Decimal?         @db.Decimal(9, 4)
+  passRate        Decimal?         @db.Decimal(7, 4)
+  trainingMinutes Int              @default(0)
+  pointsEarned    Int              @default(0)
+  metrics         Json             @db.JsonB
+  computedAt      DateTime         @db.Timestamptz(6)
+  createdAt       DateTime         @default(now()) @db.Timestamptz(6)
+  updatedAt       DateTime         @updatedAt @db.Timestamptz(6)
+  membership      TenantMembership @relation(fields: [membershipId], references: [id], onDelete: Restrict)
+
+  @@unique([tenantId, membershipId, periodStart, periodEnd, metricVersion])
+  @@index([tenantId, periodStart, periodEnd])
+  @@schema("communications")
+}
+
+model OrganizationMetricPeriod {
+  id            BigInt          @id @default(autoincrement())
+  tenantId      String          @db.Uuid
+  scopeType     TargetScopeType
+  scopeId       String?         @db.Uuid
+  periodStart   DateTime        @db.Date
+  periodEnd     DateTime        @db.Date
+  metricVersion Int
+  metrics       Json            @db.JsonB
+  computedAt    DateTime        @db.Timestamptz(6)
+  createdAt     DateTime        @default(now()) @db.Timestamptz(6)
+  updatedAt     DateTime        @updatedAt @db.Timestamptz(6)
+
+  @@unique([tenantId, scopeType, scopeId, periodStart, periodEnd, metricVersion])
+  @@index([tenantId, periodStart, periodEnd])
+  @@schema("communications")
+}
+
+model QuestionMetricPeriod {
+  id                BigInt   @id @default(autoincrement())
+  tenantId          String   @db.Uuid
+  questionVersionId String   @db.Uuid
+  periodStart       DateTime @db.Date
+  periodEnd         DateTime @db.Date
+  metricVersion     Int
+  responseCount     BigInt
+  averageScore      Decimal? @db.Decimal(9, 4)
+  difficultyIndex   Decimal? @db.Decimal(7, 4)
+  discrimination    Decimal? @db.Decimal(7, 4)
+  metrics           Json     @db.JsonB
+  computedAt        DateTime @db.Timestamptz(6)
+  createdAt         DateTime @default(now()) @db.Timestamptz(6)
+  updatedAt         DateTime @updatedAt @db.Timestamptz(6)
+
+  @@unique([tenantId, questionVersionId, periodStart, periodEnd, metricVersion])
+  @@index([tenantId, periodStart, periodEnd])
+  @@schema("communications")
+}
+
+model AIProvider {
+  id            String                          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  key           String                          @unique @db.VarChar(80)
+  name          String                          @db.VarChar(160)
+  capabilities  Json                            @db.JsonB
+  status        RecordStatus                    @default(ACTIVE)
+  createdAt     DateTime                        @default(now()) @db.Timestamptz(6)
+  updatedAt     DateTime                        @updatedAt @db.Timestamptz(6)
+  models        AIModel[]
+  tenantConfigs TenantAIProviderConfiguration[]
+
+  @@index([status])
+  @@schema("ai")
+}
+
+model AIModel {
+  id                    String                 @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  providerId            String                 @db.Uuid
+  providerModelKey      String                 @db.VarChar(160)
+  displayName           String                 @db.VarChar(160)
+  capabilities          Json                   @db.JsonB
+  contextWindowTokens   Int?
+  inputPricePerMillion  Decimal?               @db.Decimal(19, 8)
+  outputPricePerMillion Decimal?               @db.Decimal(19, 8)
+  imagePriceConfig      Json?                  @db.JsonB
+  pricingCurrency       String                 @default("USD") @db.Char(3)
+  pricingEffectiveAt    DateTime?              @db.Timestamptz(6)
+  status                RecordStatus           @default(ACTIVE)
+  createdAt             DateTime               @default(now()) @db.Timestamptz(6)
+  updatedAt             DateTime               @updatedAt @db.Timestamptz(6)
+  provider              AIProvider             @relation(fields: [providerId], references: [id], onDelete: Restrict)
+  configurations        AIModelConfiguration[]
+
+  @@unique([providerId, providerModelKey])
+  @@index([status])
+  @@schema("ai")
+}
+
+model TenantAIProviderConfiguration {
+  id               String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId         String       @db.Uuid
+  providerId       String       @db.Uuid
+  secretReference  String       @db.VarChar(512)
+  endpointOverride String?      @db.VarChar(2048)
+  organizationRef  String?      @db.VarChar(255)
+  quota            Json?        @db.JsonB
+  status           RecordStatus @default(ACTIVE)
+  createdAt        DateTime     @default(now()) @db.Timestamptz(6)
+  updatedAt        DateTime     @updatedAt @db.Timestamptz(6)
+  createdById      String?      @db.Uuid
+  updatedById      String?      @db.Uuid
+  deletedAt        DateTime?    @db.Timestamptz(6)
+  deletedById      String?      @db.Uuid
+  rowVersion       Int          @default(1)
+  tenant           Tenant       @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  provider         AIProvider   @relation(fields: [providerId], references: [id], onDelete: Restrict)
+
+  @@unique([tenantId, providerId])
+  @@index([tenantId, status, deletedAt])
+  @@schema("ai")
+}
+
+model AIModelConfiguration {
+  id              String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId        String              @db.Uuid
+  modelId         String              @db.Uuid
+  key             String              @db.VarChar(120)
+  purpose         AIExecutionPurpose
+  parameters      Json                @db.JsonB
+  fallbackChain   Json?               @db.JsonB
+  safetyPolicy    Json?               @db.JsonB
+  maxInputTokens  Int?
+  maxOutputTokens Int?
+  dailyBudget     Decimal?            @db.Decimal(19, 4)
+  monthlyBudget   Decimal?            @db.Decimal(19, 4)
+  status          RecordStatus        @default(ACTIVE)
+  createdAt       DateTime            @default(now()) @db.Timestamptz(6)
+  updatedAt       DateTime            @updatedAt @db.Timestamptz(6)
+  createdById     String?             @db.Uuid
+  updatedById     String?             @db.Uuid
+  deletedAt       DateTime?           @db.Timestamptz(6)
+  deletedById     String?             @db.Uuid
+  rowVersion      Int                 @default(1)
+  tenant          Tenant              @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  model           AIModel             @relation(fields: [modelId], references: [id], onDelete: Restrict)
+  executions      AIPromptExecution[]
+  agentRuns       AgentRun[]
+
+  @@unique([tenantId, key])
+  @@index([tenantId, purpose, status, deletedAt])
+  @@schema("ai")
+}
+
+model AIPrompt {
+  id               String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId         String             @db.Uuid
+  key              String             @db.VarChar(120)
+  name             String             @db.VarChar(200)
+  purpose          AIExecutionPurpose
+  description      String?            @db.Text
+  status           RecordStatus       @default(DRAFT)
+  currentVersionId String?            @unique @db.Uuid
+  createdAt        DateTime           @default(now()) @db.Timestamptz(6)
+  updatedAt        DateTime           @updatedAt @db.Timestamptz(6)
+  createdById      String?            @db.Uuid
+  updatedById      String?            @db.Uuid
+  deletedAt        DateTime?          @db.Timestamptz(6)
+  deletedById      String?            @db.Uuid
+  rowVersion       Int                @default(1)
+  tenant           Tenant             @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  templates        AIPromptTemplate[]
+  currentVersion   AIPromptVersion?   @relation("CurrentPromptVersion", fields: [currentVersionId], references: [id], onDelete: Restrict)
+  versions         AIPromptVersion[]  @relation("PromptVersions")
+
+  @@unique([tenantId, key])
+  @@index([tenantId, purpose, status, deletedAt])
+  @@schema("ai")
+}
+
+model AIPromptTemplate {
+  id             String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId       String    @db.Uuid
+  promptId       String    @db.Uuid
+  key            String    @db.VarChar(120)
+  templateRole   String    @default("USER") @db.VarChar(40)
+  content        String    @db.Text
+  variableSchema Json      @db.JsonB
+  sortOrder      Int       @default(0)
+  createdAt      DateTime  @default(now()) @db.Timestamptz(6)
+  updatedAt      DateTime  @updatedAt @db.Timestamptz(6)
+  createdById    String?   @db.Uuid
+  updatedById    String?   @db.Uuid
+  deletedAt      DateTime? @db.Timestamptz(6)
+  deletedById    String?   @db.Uuid
+  rowVersion     Int       @default(1)
+  prompt         AIPrompt  @relation(fields: [promptId], references: [id], onDelete: Restrict)
+
+  @@unique([promptId, key])
+  @@index([tenantId, promptId, sortOrder])
+  @@schema("ai")
+}
+
+model AIPromptVersion {
+  id               String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId         String              @db.Uuid
+  promptId         String              @db.Uuid
+  versionNumber    Int
+  status           VersionStatus       @default(DRAFT)
+  messages         Json                @db.JsonB
+  variableSchema   Json                @db.JsonB
+  outputSchema     Json?               @db.JsonB
+  safetyPolicy     Json?               @db.JsonB
+  evaluationConfig Json?               @db.JsonB
+  contentHash      String              @db.Char(64)
+  publishedAt      DateTime?           @db.Timestamptz(6)
+  createdAt        DateTime            @default(now()) @db.Timestamptz(6)
+  updatedAt        DateTime            @updatedAt @db.Timestamptz(6)
+  createdById      String?             @db.Uuid
+  prompt           AIPrompt            @relation("PromptVersions", fields: [promptId], references: [id], onDelete: Restrict)
+  currentForPrompt AIPrompt?           @relation("CurrentPromptVersion")
+  executions       AIPromptExecution[]
+
+  @@unique([promptId, versionNumber])
+  @@unique([tenantId, contentHash])
+  @@index([tenantId, status, publishedAt])
+  @@schema("ai")
+}
+
+model AIPromptExecution {
+  id                   BigInt                      @id @default(autoincrement())
+  publicId             String                      @unique @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId             String                      @db.Uuid
+  promptVersionId      String?                     @db.Uuid
+  modelConfigurationId String                      @db.Uuid
+  purpose              AIExecutionPurpose
+  status               AIExecutionStatus           @default(QUEUED)
+  idempotencyKey       String                      @db.VarChar(255)
+  traceId              String?                     @db.VarChar(64)
+  correlationId        String?                     @db.VarChar(128)
+  sourceType           String?                     @db.VarChar(80)
+  sourceId             String?                     @db.VarChar(255)
+  inputHash            String                      @db.Char(64)
+  inputSnapshot        Json?                       @db.JsonB
+  outputSnapshot       Json?                       @db.JsonB
+  providerRequestId    String?                     @db.VarChar(255)
+  startedAt            DateTime?                   @db.Timestamptz(6)
+  completedAt          DateTime?                   @db.Timestamptz(6)
+  latencyMs            Int?
+  failureCode          String?                     @db.VarChar(160)
+  failureDetail        Json?                       @db.JsonB
+  createdAt            DateTime                    @default(now()) @db.Timestamptz(6)
+  updatedAt            DateTime                    @updatedAt @db.Timestamptz(6)
+  promptVersion        AIPromptVersion?            @relation(fields: [promptVersionId], references: [id], onDelete: Restrict)
+  modelConfiguration   AIModelConfiguration        @relation(fields: [modelConfigurationId], references: [id], onDelete: Restrict)
+  logs                 AIPromptLog[]
+  tokenUsage           AITokenUsage[]
+  costEntries          AICostTracking[]
+  generatedImages      GeneratedImage[]
+  questionGenerations  QuestionGenerationHistory[]
+  evaluations          AIEvaluationHistory[]
+  feedback             AIFeedbackHistory[]
+  recommendations      AIRecommendation[]
+  agentRuns            AgentRun[]
+
+  @@unique([tenantId, idempotencyKey])
+  @@index([tenantId, purpose, status, createdAt])
+  @@index([tenantId, sourceType, sourceId])
+  @@index([createdAt], type: Brin)
+  @@schema("ai")
+}
+
+model AIPromptLog {
+  id          BigInt            @id @default(autoincrement())
+  tenantId    String            @db.Uuid
+  executionId BigInt
+  sequence    Int
+  level       String            @db.VarChar(20)
+  eventType   String            @db.VarChar(80)
+  message     String?           @db.Text
+  attributes  Json?             @db.JsonB
+  occurredAt  DateTime          @default(now()) @db.Timestamptz(6)
+  createdAt   DateTime          @default(now()) @db.Timestamptz(6)
+  updatedAt   DateTime          @updatedAt @db.Timestamptz(6)
+  execution   AIPromptExecution @relation(fields: [executionId], references: [id], onDelete: Restrict)
+
+  @@unique([executionId, sequence])
+  @@index([tenantId, level, occurredAt])
+  @@index([occurredAt], type: Brin)
+  @@schema("ai")
+}
+
+model AITokenUsage {
+  id                BigInt            @id @default(autoincrement())
+  tenantId          String            @db.Uuid
+  executionId       BigInt
+  providerModelKey  String            @db.VarChar(160)
+  inputTokens       Int               @default(0)
+  cachedInputTokens Int               @default(0)
+  outputTokens      Int               @default(0)
+  reasoningTokens   Int               @default(0)
+  totalTokens       Int               @default(0)
+  measuredAt        DateTime          @default(now()) @db.Timestamptz(6)
+  createdAt         DateTime          @default(now()) @db.Timestamptz(6)
+  updatedAt         DateTime          @updatedAt @db.Timestamptz(6)
+  execution         AIPromptExecution @relation(fields: [executionId], references: [id], onDelete: Restrict)
+
+  @@index([tenantId, measuredAt])
+  @@index([executionId])
+  @@index([measuredAt], type: Brin)
+  @@schema("ai")
+}
+
+model AICostTracking {
+  id             BigInt            @id @default(autoincrement())
+  tenantId       String            @db.Uuid
+  executionId    BigInt
+  costType       String            @db.VarChar(40)
+  quantity       Decimal           @db.Decimal(19, 6)
+  unit           String            @db.VarChar(40)
+  unitPrice      Decimal           @db.Decimal(19, 8)
+  amount         Decimal           @db.Decimal(19, 8)
+  currency       String            @db.Char(3)
+  pricingVersion String            @db.VarChar(80)
+  incurredAt     DateTime          @default(now()) @db.Timestamptz(6)
+  createdAt      DateTime          @default(now()) @db.Timestamptz(6)
+  updatedAt      DateTime          @updatedAt @db.Timestamptz(6)
+  execution      AIPromptExecution @relation(fields: [executionId], references: [id], onDelete: Restrict)
+
+  @@index([tenantId, incurredAt])
+  @@index([executionId])
+  @@index([incurredAt], type: Brin)
+  @@schema("ai")
+}
+
+model SVGAsset {
+  id                  String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId            String            @db.Uuid
+  mediaAssetVersionId String            @unique @db.Uuid
+  sourceType          String            @db.VarChar(40)
+  sanitizerVersion    String            @db.VarChar(80)
+  rendererVersion     String            @db.VarChar(80)
+  viewBox             String?           @db.VarChar(120)
+  elementCount        Int?
+  sanitizedHash       String            @db.Char(64)
+  safetyReport        Json              @db.JsonB
+  createdAt           DateTime          @default(now()) @db.Timestamptz(6)
+  updatedAt           DateTime          @updatedAt @db.Timestamptz(6)
+  mediaAssetVersion   MediaAssetVersion @relation(fields: [mediaAssetVersionId], references: [id], onDelete: Restrict)
+
+  @@unique([tenantId, sanitizedHash])
+  @@index([tenantId, createdAt])
+  @@schema("ai")
+}
+
+model GeneratedImage {
+  id                  String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId            String            @db.Uuid
+  executionId         BigInt
+  mediaAssetVersionId String            @db.Uuid
+  providerImageId     String?           @db.VarChar(255)
+  revisedPrompt       String?           @db.Text
+  generationParams    Json              @db.JsonB
+  moderationResult    Json?             @db.JsonB
+  provenance          Json              @db.JsonB
+  createdAt           DateTime          @default(now()) @db.Timestamptz(6)
+  updatedAt           DateTime          @updatedAt @db.Timestamptz(6)
+  execution           AIPromptExecution @relation(fields: [executionId], references: [id], onDelete: Restrict)
+  mediaAssetVersion   MediaAssetVersion @relation(fields: [mediaAssetVersionId], references: [id], onDelete: Restrict)
+  cacheEntries        ImageCache[]
+
+  @@index([tenantId, createdAt])
+  @@index([tenantId, executionId])
+  @@schema("ai")
+}
+
+model ImageCache {
+  id               String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId         String         @db.Uuid
+  cacheKey         String         @db.Char(64)
+  generatedImageId String         @db.Uuid
+  policyVersion    String         @db.VarChar(80)
+  hitCount         BigInt         @default(0)
+  lastHitAt        DateTime?      @db.Timestamptz(6)
+  expiresAt        DateTime       @db.Timestamptz(6)
+  createdAt        DateTime       @default(now()) @db.Timestamptz(6)
+  updatedAt        DateTime       @updatedAt @db.Timestamptz(6)
+  generatedImage   GeneratedImage @relation(fields: [generatedImageId], references: [id], onDelete: Restrict)
+
+  @@unique([tenantId, cacheKey, policyVersion])
+  @@index([tenantId, expiresAt])
+  @@schema("ai")
+}
+
+model QuestionGenerationHistory {
+  id                         BigInt            @id @default(autoincrement())
+  tenantId                   String            @db.Uuid
+  executionId                BigInt
+  sourceQuestionId           String?           @db.Uuid
+  generatedQuestionVersionId String?           @db.Uuid
+  request                    Json              @db.JsonB
+  validationResult           Json?             @db.JsonB
+  humanDecision              String?           @db.VarChar(40)
+  decidedById                String?           @db.Uuid
+  decidedAt                  DateTime?         @db.Timestamptz(6)
+  createdAt                  DateTime          @default(now()) @db.Timestamptz(6)
+  updatedAt                  DateTime          @updatedAt @db.Timestamptz(6)
+  execution                  AIPromptExecution @relation(fields: [executionId], references: [id], onDelete: Restrict)
+  sourceQuestion             Question?         @relation(fields: [sourceQuestionId], references: [id], onDelete: Restrict)
+  generatedQuestionVersion   QuestionVersion?  @relation("GeneratedQuestionVersion", fields: [generatedQuestionVersionId], references: [id], onDelete: Restrict)
+
+  @@index([tenantId, createdAt])
+  @@index([tenantId, generatedQuestionVersionId])
+  @@schema("ai")
+}
+
+model AIEvaluationHistory {
+  id             BigInt             @id @default(autoincrement())
+  tenantId       String             @db.Uuid
+  executionId    BigInt
+  attemptId      BigInt?
+  evaluationType String             @db.VarChar(80)
+  inputReference Json               @db.JsonB
+  result         Json               @db.JsonB
+  confidence     Decimal?           @db.Decimal(7, 6)
+  humanOutcome   String?            @db.VarChar(40)
+  reviewedById   String?            @db.Uuid
+  reviewedAt     DateTime?          @db.Timestamptz(6)
+  createdAt      DateTime           @default(now()) @db.Timestamptz(6)
+  updatedAt      DateTime           @updatedAt @db.Timestamptz(6)
+  execution      AIPromptExecution  @relation(fields: [executionId], references: [id], onDelete: Restrict)
+  attempt        AssessmentAttempt? @relation(fields: [attemptId], references: [id], onDelete: Restrict)
+
+  @@index([tenantId, evaluationType, createdAt])
+  @@index([tenantId, attemptId])
+  @@schema("ai")
+}
+
+model AIFeedbackHistory {
+  id           BigInt              @id @default(autoincrement())
+  tenantId     String              @db.Uuid
+  executionId  BigInt
+  subjectType  String              @db.VarChar(80)
+  subjectId    String              @db.VarChar(255)
+  feedback     Json                @db.JsonB
+  publishedAt  DateTime?           @db.Timestamptz(6)
+  supersedesId BigInt?
+  createdAt    DateTime            @default(now()) @db.Timestamptz(6)
+  updatedAt    DateTime            @updatedAt @db.Timestamptz(6)
+  execution    AIPromptExecution   @relation(fields: [executionId], references: [id], onDelete: Restrict)
+  supersedes   AIFeedbackHistory?  @relation("FeedbackHistory", fields: [supersedesId], references: [id], onDelete: Restrict)
+  revisions    AIFeedbackHistory[] @relation("FeedbackHistory")
+
+  @@index([tenantId, subjectType, subjectId, createdAt])
+  @@schema("ai")
+}
+
+model AIRecommendation {
+  id                 String                 @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId           String                 @db.Uuid
+  executionId        BigInt
+  subjectType        String                 @db.VarChar(80)
+  subjectId          String                 @db.VarChar(255)
+  recommendationType String                 @db.VarChar(80)
+  recommendation     Json                   @db.JsonB
+  evidence           Json                   @db.JsonB
+  status             AIRecommendationStatus @default(PROPOSED)
+  expiresAt          DateTime?              @db.Timestamptz(6)
+  decidedAt          DateTime?              @db.Timestamptz(6)
+  decidedById        String?                @db.Uuid
+  createdAt          DateTime               @default(now()) @db.Timestamptz(6)
+  updatedAt          DateTime               @updatedAt @db.Timestamptz(6)
+  execution          AIPromptExecution      @relation(fields: [executionId], references: [id], onDelete: Restrict)
+
+  @@index([tenantId, subjectType, subjectId, status])
+  @@index([tenantId, expiresAt])
+  @@schema("ai")
+}
+
+model AgentRun {
+  id                   String               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId             String               @db.Uuid
+  executionId          BigInt?
+  modelConfigurationId String               @db.Uuid
+  agentKey             String               @db.VarChar(120)
+  agentVersion         String               @db.VarChar(80)
+  status               AgentRunStatus       @default(QUEUED)
+  objective            String               @db.Text
+  input                Json                 @db.JsonB
+  output               Json?                @db.JsonB
+  policySnapshot       Json                 @db.JsonB
+  currentStep          Int                  @default(0)
+  startedAt            DateTime?            @db.Timestamptz(6)
+  completedAt          DateTime?            @db.Timestamptz(6)
+  createdAt            DateTime             @default(now()) @db.Timestamptz(6)
+  updatedAt            DateTime             @updatedAt @db.Timestamptz(6)
+  execution            AIPromptExecution?   @relation(fields: [executionId], references: [id], onDelete: Restrict)
+  modelConfiguration   AIModelConfiguration @relation(fields: [modelConfigurationId], references: [id], onDelete: Restrict)
+  steps                AgentRunStep[]
+
+  @@index([tenantId, status, createdAt])
+  @@index([tenantId, agentKey, agentVersion])
+  @@schema("ai")
+}
+
+model AgentRunStep {
+  id               BigInt         @id @default(autoincrement())
+  tenantId         String         @db.Uuid
+  agentRunId       String         @db.Uuid
+  sequence         Int
+  stepType         String         @db.VarChar(80)
+  toolName         String?        @db.VarChar(160)
+  status           AgentRunStatus
+  input            Json?          @db.JsonB
+  output           Json?          @db.JsonB
+  requiresApproval Boolean        @default(false)
+  approvedById     String?        @db.Uuid
+  approvedAt       DateTime?      @db.Timestamptz(6)
+  startedAt        DateTime?      @db.Timestamptz(6)
+  completedAt      DateTime?      @db.Timestamptz(6)
+  createdAt        DateTime       @default(now()) @db.Timestamptz(6)
+  updatedAt        DateTime       @updatedAt @db.Timestamptz(6)
+  agentRun         AgentRun       @relation(fields: [agentRunId], references: [id], onDelete: Restrict)
+
+  @@unique([agentRunId, sequence])
+  @@index([tenantId, status, createdAt])
+  @@schema("ai")
+}
+
+model AuditEvent {
+  id                BigInt         @id @default(autoincrement())
+  tenantId          String?        @db.Uuid
+  actorType         AuditActorType
+  actorId           String?        @db.Uuid
+  supportGrantId    String?        @db.Uuid
+  action            String         @db.VarChar(160)
+  entityType        String         @db.VarChar(160)
+  entityId          String?        @db.VarChar(255)
+  outcome           AuditOutcome
+  reasonCode        String?        @db.VarChar(160)
+  requestId         String?        @db.VarChar(128)
+  traceId           String?        @db.VarChar(64)
+  correlationId     String?        @db.VarChar(128)
+  sourceIpHash      String?        @db.Char(64)
+  userAgentHash     String?        @db.Char(64)
+  beforeState       Json?          @db.JsonB
+  afterState        Json?          @db.JsonB
+  metadata          Json?          @db.JsonB
+  previousEventHash String?        @db.Char(64)
+  eventHash         String         @unique @db.Char(64)
+  occurredAt        DateTime       @default(now()) @db.Timestamptz(6)
+  createdAt         DateTime       @default(now()) @db.Timestamptz(6)
+  updatedAt         DateTime       @updatedAt @db.Timestamptz(6)
+  tenant            Tenant?        @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+
+  @@index([tenantId, entityType, entityId, occurredAt])
+  @@index([tenantId, actorId, occurredAt])
+  @@index([tenantId, action, outcome, occurredAt])
+  @@index([occurredAt], type: Brin)
+  @@schema("operations")
+}
+
+model AuthorizationDecision {
+  id            BigInt         @id @default(autoincrement())
+  tenantId      String?        @db.Uuid
+  actorType     AuditActorType
+  actorId       String?        @db.Uuid
+  action        String         @db.VarChar(160)
+  resourceType  String         @db.VarChar(160)
+  resourceId    String?        @db.VarChar(255)
+  allowed       Boolean
+  policyVersion String         @db.VarChar(80)
+  reasonCodes   Json           @db.JsonB
+  requestId     String?        @db.VarChar(128)
+  traceId       String?        @db.VarChar(64)
+  evaluatedAt   DateTime       @default(now()) @db.Timestamptz(6)
+  createdAt     DateTime       @default(now()) @db.Timestamptz(6)
+  updatedAt     DateTime       @updatedAt @db.Timestamptz(6)
+
+  @@index([tenantId, actorId, evaluatedAt])
+  @@index([tenantId, resourceType, resourceId, evaluatedAt])
+  @@index([evaluatedAt], type: Brin)
+  @@schema("operations")
+}
+
+model OutboxEvent {
+  id             BigInt       @id @default(autoincrement())
+  tenantId       String?      @db.Uuid
+  aggregateType  String       @db.VarChar(160)
+  aggregateId    String       @db.VarChar(255)
+  eventType      String       @db.VarChar(160)
+  eventVersion   Int
+  payload        Json         @db.JsonB
+  headers        Json?        @db.JsonB
+  idempotencyKey String       @db.VarChar(255)
+  status         OutboxStatus @default(PENDING)
+  availableAt    DateTime     @default(now()) @db.Timestamptz(6)
+  publishedAt    DateTime?    @db.Timestamptz(6)
+  attemptCount   Int          @default(0)
+  lastError      String?      @db.Text
+  createdAt      DateTime     @default(now()) @db.Timestamptz(6)
+  updatedAt      DateTime     @updatedAt @db.Timestamptz(6)
+  tenant         Tenant?      @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+
+  @@unique([tenantId, idempotencyKey])
+  @@index([status, availableAt])
+  @@index([tenantId, aggregateType, aggregateId])
+  @@index([createdAt], type: Brin)
+  @@schema("operations")
+}
+
+model IdempotencyRecord {
+  id             BigInt    @id @default(autoincrement())
+  tenantId       String?   @db.Uuid
+  scope          String    @db.VarChar(120)
+  idempotencyKey String    @db.VarChar(255)
+  requestHash    String    @db.Char(64)
+  responseStatus Int?
+  responseBody   Json?     @db.JsonB
+  lockedUntil    DateTime? @db.Timestamptz(6)
+  completedAt    DateTime? @db.Timestamptz(6)
+  expiresAt      DateTime  @db.Timestamptz(6)
+  createdAt      DateTime  @default(now()) @db.Timestamptz(6)
+  updatedAt      DateTime  @updatedAt @db.Timestamptz(6)
+
+  @@unique([tenantId, scope, idempotencyKey])
+  @@index([expiresAt])
+  @@schema("operations")
+}
+
+model DataSubjectRequest {
+  id                   String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId             String            @db.Uuid
+  requestType          DataRequestType
+  status               DataRequestStatus @default(REQUESTED)
+  subjectType          String            @db.VarChar(40)
+  subjectId            String            @db.VarChar(255)
+  requestedById        String?           @db.Uuid
+  verifiedAt           DateTime?         @db.Timestamptz(6)
+  approvedById         String?           @db.Uuid
+  approvedAt           DateTime?         @db.Timestamptz(6)
+  dueAt                DateTime          @db.Timestamptz(6)
+  completedAt          DateTime?         @db.Timestamptz(6)
+  outputAssetVersionId String?           @db.Uuid
+  purgeManifest        Json?             @db.JsonB
+  rejectionReason      String?           @db.Text
+  createdAt            DateTime          @default(now()) @db.Timestamptz(6)
+  updatedAt            DateTime          @updatedAt @db.Timestamptz(6)
+  rowVersion           Int               @default(1)
+  tenant               Tenant            @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+
+  @@index([tenantId, status, dueAt])
+  @@index([tenantId, subjectType, subjectId, createdAt])
+  @@schema("operations")
+}
