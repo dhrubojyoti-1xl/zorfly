@@ -240,7 +240,7 @@ async function syncTags(
   }
 }
 
-async function createQuestion(
+export async function createQuestion(
   prisma: ZorflyPrismaClient,
   tenantId: string,
   userId: string,

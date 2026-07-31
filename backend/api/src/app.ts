@@ -26,6 +26,8 @@ import { createCategoryRouter } from './modules/assessment/categories.router.js'
 import { createQuestionRouter } from './modules/assessment/questions.router.js';
 import { createTestRouter } from './modules/assessment/tests.router.js';
 import { createAttemptRouter } from './modules/assessment/attempts.router.js';
+import { createAiRouter } from './modules/ai/ai.router.js';
+import type { AiExecutionService } from './modules/ai/ai.service.js';
 
 export interface AppOptions {
   environment: ApiEnvironment;
@@ -37,9 +39,12 @@ export interface AppOptions {
   organization?: {
     prisma: ZorflyPrismaClient;
   };
+  ai?: {
+    service: AiExecutionService;
+  };
 }
 
-export function createApp({ environment, version, auth, organization }: AppOptions): Express {
+export function createApp({ environment, version, auth, organization, ai }: AppOptions): Express {
   const app = express();
   const logger = createLogger(environment.LOG_LEVEL);
 
@@ -104,6 +109,12 @@ export function createApp({ environment, version, auth, organization }: AppOptio
         '/api/v1/attempts',
         createAttemptRouter(organization.prisma, auth.service, auth.tokens)
       );
+      if (ai) {
+        app.use(
+          '/api/v1/ai',
+          createAiRouter(organization.prisma, auth.service, auth.tokens, ai.service)
+        );
+      }
     }
   }
   app.use(notFoundHandler);

@@ -6,9 +6,15 @@ import { passwordHasher } from './modules/auth/password.js';
 import { PrismaAuthRepository } from './modules/auth/prisma-auth.repository.js';
 import { SmtpAuthMailer } from './modules/auth/smtp-auth.mailer.js';
 import { createTokenService } from './modules/auth/tokens.js';
+import { AiExecutionService } from './modules/ai/ai.service.js';
+import { EnvSecretResolver } from './modules/ai/secret-resolver.js';
 
 const environment = parseApiEnvironment();
 const prisma = createPrismaClient(environment.DATABASE_URL);
+const aiExecutionService = new AiExecutionService({
+  prisma,
+  secretResolver: new EnvSecretResolver()
+});
 const tokens = createTokenService({
   signingKey: environment.SESSION_SIGNING_KEY,
   hashKey: environment.SESSION_HASH_KEY,
@@ -26,7 +32,8 @@ const app = createApp({
   environment,
   version: '0.1.0',
   auth: { service: authService, tokens },
-  organization: { prisma }
+  organization: { prisma },
+  ai: { service: aiExecutionService }
 });
 
 const server = app.listen(environment.API_PORT, environment.API_HOST, () => {
