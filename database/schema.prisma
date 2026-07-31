@@ -1311,7 +1311,7 @@ model Question {
   categoryId        String                      @db.Uuid
   difficultyLevelId String                      @db.Uuid
   code              String                      @db.VarChar(100)
-  title             String                      @db.VarChar(255)
+  title             String                      @db.VarChar(300)
   status            QuestionStatus              @default(DRAFT)
   currentVersionId  String?                     @unique @db.Uuid
   createdAt         DateTime                    @default(now()) @db.Timestamptz(6)

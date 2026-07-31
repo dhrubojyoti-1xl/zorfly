@@ -141,6 +141,9 @@ The following compatibility slices are implemented on PostgreSQL:
   scope and branch-aware teams;
 - employee listing, creation, update, team assignment, and removal, mapped to
   users, tenant memberships, membership roles, and historical team memberships.
+- category and subcategory administration plus the question bank, including all
+  nine interaction schemas, CSV exchange, normalized options and tags, and
+  immutable question-version history.
 
 Organization writes are transactional where multiple records are involved.
 References are resolved inside the authenticated tenant, employee removal is a
