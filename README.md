@@ -111,6 +111,7 @@ corepack prepare pnpm@11.18.0 --activate
 pnpm install --frozen-lockfile
 cp .env.example .env
 pnpm services:up
+pnpm db:migrate:deploy
 pnpm db:generate
 pnpm dev
 ```

@@ -18,6 +18,22 @@ jobs:
     name: Validate workspace
     runs-on: ubuntu-24.04
     timeout-minutes: 30
+    services:
+      postgres:
+        image: postgres:17.6-alpine
+        env:
+          POSTGRES_DB: zorfly
+          POSTGRES_PASSWORD: zorfly-ci
+          POSTGRES_USER: zorfly
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U zorfly -d zorfly" --health-interval 5s --health-timeout 5s
+          --health-retries 12
+    env:
+      DATABASE_URL: postgresql://zorfly:zorfly-ci@localhost:5432/zorfly
+      DATABASE_DIRECT_URL: postgresql://zorfly:zorfly-ci@localhost:5432/zorfly
+      TEST_DATABASE_URL: postgresql://zorfly:zorfly-ci@localhost:5432/zorfly
 
     steps:
       - name: Check out repository
@@ -38,6 +54,9 @@ jobs:
 
       - name: Validate Docker Compose
         run: docker compose -f docker/compose.yml config --quiet
+
+      - name: Apply database migrations
+        run: pnpm exec prisma migrate deploy
 
       - name: Validate repository
         run: pnpm validate

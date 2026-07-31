@@ -113,6 +113,8 @@ The initial migration adds, at minimum:
 - `parentVersionId <> childVersionId` for asset lineage;
 - points-ledger arithmetic consistent with entry type; and
 - candidate retention dates no earlier than creation.
+- session and password-reset expiry later than creation, one-way token hashes,
+  and non-negative authentication failure counters.
 
 ### 3.5 Immutable rows and append-only evidence
 
@@ -125,6 +127,10 @@ evidence except through a narrowly granted maintenance function:
 - `ResponseEvaluation`, `CandidateDecisionHistory`, `RewardPointLedger`,
   `AIPromptLog`, `AITokenUsage`, `AICostTracking`, `AuditEvent`, and
   `AuthorizationDecision`.
+
+Refresh-token rotation and password-reset consumption use conditional updates
+inside transactions. A concurrent replay can update zero rows and is rejected;
+password changes and successful resets revoke every outstanding user session.
 
 Corrections append a superseding version or compensating ledger event. The
 `updatedAt` field on append-only rows exists for storage consistency and is

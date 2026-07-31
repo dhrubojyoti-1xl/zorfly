@@ -20,8 +20,13 @@ export function AuthProvider({ children }) {
 
   const loadMe = useCallback(async () => {
     if (!getAccessToken()) {
-      setLoading(false);
-      return;
+      try {
+        const refreshResponse = await api.post('/auth/refresh');
+        setAccessToken(refreshResponse.data.data.accessToken);
+      } catch {
+        setLoading(false);
+        return;
+      }
     }
     try {
       const response = await api.get('/auth/me');

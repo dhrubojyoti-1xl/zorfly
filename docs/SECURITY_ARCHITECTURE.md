@@ -34,7 +34,9 @@ risk.
   enterprise SSO, MFA assertions, and directory lifecycle.
 - Zorfly validates issuer, audience, signature, nonce/state, expiry, and
   organization membership.
-- Browser sessions use secure, HTTP-only, same-site cookies with CSRF protection.
+- Browser refresh sessions use opaque, HMAC-hashed, rotated tokens in secure,
+  HTTP-only, same-site cookies. Short-lived access tokens remain in browser
+  memory and are never written to local storage.
 - Mobile uses authorization code with PKCE and secure OS credential storage.
 - Session rotation, absolute and idle expiry, revocation, device/risk signals,
   and reauthentication are defined by action risk.

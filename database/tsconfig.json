@@ -1,0 +1,10 @@
+{
+  "extends": "../tsconfig.base.json",
+  "compilerOptions": {
+    "outDir": "dist",
+    "rootDir": ".",
+    "rewriteRelativeImportExtensions": true,
+    "types": ["node"]
+  },
+  "include": ["src/**/*.ts", "generated/prisma/**/*.ts"]
+}

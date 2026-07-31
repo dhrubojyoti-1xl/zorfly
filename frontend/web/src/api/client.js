@@ -1,14 +1,13 @@
 import axios from 'axios';
 
-const TOKEN_KEY = 'zorfly_access_token';
+let accessToken = '';
 
 export function getAccessToken() {
-  return localStorage.getItem(TOKEN_KEY) || '';
+  return accessToken;
 }
 
 export function setAccessToken(token) {
-  if (token) localStorage.setItem(TOKEN_KEY, token);
-  else localStorage.removeItem(TOKEN_KEY);
+  accessToken = token || '';
 }
 
 export const api = axios.create({

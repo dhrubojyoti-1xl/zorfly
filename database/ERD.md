@@ -15,6 +15,11 @@ custom migration constraints described in `MIGRATION_STRATEGY.md`.
 
 ```mermaid
 erDiagram
+  User ||--o| UserCredential : authenticates
+  User ||--o{ UserIdentity : federates
+  User ||--o{ UserSession : opens
+  User ||--o{ PasswordResetToken : recovers
+  Tenant ||--o{ UserSession : activates
   User ||--o{ TenantMembership : joins
   User ||--o{ PlatformUserRole : receives
   PlatformRole ||--o{ PlatformUserRole : assigned

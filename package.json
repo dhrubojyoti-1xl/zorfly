@@ -21,6 +21,8 @@
     "typecheck": "turbo run typecheck",
     "validate": "pnpm format:check && pnpm docs:lint && pnpm db:validate && pnpm lint && pnpm typecheck && pnpm test && pnpm build",
     "db:generate": "prisma generate --schema database/schema.prisma",
+    "db:migrate:deploy": "prisma migrate deploy",
+    "db:migrate:dev": "prisma migrate dev",
     "db:validate": "prisma validate --schema database/schema.prisma",
     "db:format": "prisma format --schema database/schema.prisma",
     "services:up": "docker compose -f docker/compose.yml up -d --wait",

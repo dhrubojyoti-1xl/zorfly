@@ -75,6 +75,7 @@ Implementation must preserve:
 
 - refresh tokens without rotation, reuse detection, or a revocable session
   record;
+- browser access tokens persisted in local storage;
 - partial multi-record writes without database transactions;
 - fire-and-forget audit, reward, or notification writes;
 - in-memory rate limiting and a process-local minute scheduler;

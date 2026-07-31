@@ -13,4 +13,10 @@ describe('environment parsing', () => {
   it('rejects invalid worker Redis URLs', () => {
     expect(() => parseWorkerEnvironment({ REDIS_URL: 'not-a-url' })).toThrow();
   });
+
+  it('rejects local session keys in production', () => {
+    expect(() => parseApiEnvironment({ NODE_ENV: 'production' })).toThrow(
+      'Production session keys must be explicitly configured.'
+    );
+  });
 });

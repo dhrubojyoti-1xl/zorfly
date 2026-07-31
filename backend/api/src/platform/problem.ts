@@ -1,4 +1,5 @@
 import type { ErrorRequestHandler, RequestHandler } from 'express';
+import { ApiError } from './api-error.js';
 
 export class HttpProblem extends Error {
   public constructor(
@@ -23,6 +24,23 @@ export const notFoundHandler: RequestHandler = (request, _response, next) => {
 };
 
 export const problemHandler: ErrorRequestHandler = (error: unknown, request, response, _next) => {
+  if (error instanceof ApiError) {
+    response.status(error.statusCode).json({
+      success: false,
+      message: error.message,
+      ...(error.errors ? { errors: error.errors } : {})
+    });
+    return;
+  }
+
+  if (typeof error === 'object' && error !== null && 'code' in error && error.code === 'P2002') {
+    response.status(409).json({
+      success: false,
+      message: 'A record with the same value already exists.'
+    });
+    return;
+  }
+
   const problem =
     error instanceof HttpProblem
       ? error
