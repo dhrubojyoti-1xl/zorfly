@@ -150,8 +150,15 @@ The following compatibility slices are implemented on PostgreSQL:
 - multi-target test assignment, tenant-safe audience expansion, materialized
   per-person work, assignment history, optional due dates, own-team scope, and
   audited revocation that leaves started work intact.
+- employee test discovery, atomic attempt-limit enforcement, resumable
+  autosave, immutable per-attempt papers, deterministic scoring for all nine
+  OneXL interaction types, result history and review, and hashed proctor
+  evidence that avoids persisting browser image payloads in PostgreSQL.
 
 Organization writes are transactional where multiple records are involved.
 References are resolved inside the authenticated tenant, employee removal is a
 recoverable tenant-membership termination, and PostgreSQL integration tests
 cover the primary lifecycle and reject representative cross-tenant references.
+Assessment integration coverage now also exercises assignment discovery,
+start/resume, answer persistence, proctor evidence, submission, scoring,
+review, history, completed-work preservation, and cross-tenant attempt denial.

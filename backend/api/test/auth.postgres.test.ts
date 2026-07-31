@@ -508,15 +508,110 @@ integration('Prisma/PostgreSQL authentication repository', () => {
     });
     const campaignId = assignmentHistoryBody.data.rows[0]?.id;
     if (!campaignId) throw new Error('Expected an assignment campaign.');
+
+    const temporaryPassword = employeeBody.data.temporaryPassword;
+    if (!temporaryPassword) throw new Error('Expected a temporary employee password.');
+    const employeeLogin = await service.logIn(
+      { email: employeeEmail, password: temporaryPassword },
+      { requestId: randomUUID(), ip: '127.0.0.1', userAgent: 'vitest-employee' }
+    );
+    if (!('accessToken' in employeeLogin)) throw new Error('Expected an employee session.');
+    const employeeAuthorization = `Bearer ${employeeLogin.accessToken}`;
+    const myTestsResponse = await request(app)
+      .get('/api/v1/attempts/my-tests')
+      .set('authorization', employeeAuthorization)
+      .expect(200);
+    const myTestsBody = myTestsResponse.body as {
+      data: { rows: Array<{ testId: string; status: string }>; totalCount: number };
+    };
+    expect(myTestsBody.data.totalCount).toBe(1);
+    expect(myTestsBody.data.rows[0]).toMatchObject({
+      testId: testBody.data.id,
+      status: 'pending'
+    });
+
+    const startResponse = await request(app)
+      .post('/api/v1/attempts/start')
+      .set('authorization', employeeAuthorization)
+      .send({ testId: testBody.data.id })
+      .expect(201);
+    const startBody = startResponse.body as {
+      data: {
+        id: string;
+        questions: Array<{ id: string; content: Record<string, unknown> }>;
+      };
+    };
+    const attemptId = startBody.data.id;
+    expect(startBody.data.questions[0]?.id).toBe(questionBody.data.id);
+    expect(startBody.data.questions[0]?.content).not.toHaveProperty('correctAnswer');
+
+    const resumeResponse = await request(app)
+      .post('/api/v1/attempts/start')
+      .set('authorization', employeeAuthorization)
+      .send({ testId: testBody.data.id })
+      .expect(200);
+    expect((resumeResponse.body as { data: { id: string } }).data.id).toBe(attemptId);
+    await request(app)
+      .patch(`/api/v1/attempts/${attemptId}/answers`)
+      .set('authorization', employeeAuthorization)
+      .send({ questionId: questionBody.data.id, answer: { value: true }, sequence: 1 })
+      .expect(200);
+    await request(app)
+      .post(`/api/v1/attempts/${attemptId}/proctor-snapshot`)
+      .set('authorization', employeeAuthorization)
+      .send({ image: 'data:image/jpeg;base64,dGVzdC1zbmFwc2hvdA==' })
+      .expect(200);
+    const resumedAttempt = await request(app)
+      .get(`/api/v1/attempts/${attemptId}`)
+      .set('authorization', employeeAuthorization)
+      .expect(200);
+    expect(
+      (resumedAttempt.body as { data: { answers: Record<string, unknown> } }).data.answers[
+        questionBody.data.id
+      ]
+    ).toEqual({ value: true });
+
+    await request(app)
+      .get(`/api/v1/attempts/${attemptId}`)
+      .set('authorization', `Bearer ${second.accessToken}`)
+      .expect(404);
+    const submitResponse = await request(app)
+      .post(`/api/v1/attempts/${attemptId}/submit`)
+      .set('authorization', employeeAuthorization)
+      .expect(200);
+    expect(
+      (
+        submitResponse.body as {
+          data: { obtained: number; max: number; percentage: number; passed: boolean };
+        }
+      ).data
+    ).toMatchObject({ obtained: 5, max: 5, percentage: 100, passed: true });
+    const reviewResponse = await request(app)
+      .get(`/api/v1/attempts/${attemptId}/review`)
+      .set('authorization', employeeAuthorization)
+      .expect(200);
+    expect(
+      (reviewResponse.body as { data: { questions: Array<{ yourAnswer: unknown }> } }).data
+        .questions[0]?.yourAnswer
+    ).toEqual({ value: true });
+    const historyResponse = await request(app)
+      .get('/api/v1/attempts')
+      .set('authorization', employeeAuthorization)
+      .expect(200);
+    expect(
+      (historyResponse.body as { data: { rows: Array<{ id: string; passed: boolean }> } }).data
+        .rows[0]
+    ).toMatchObject({ id: attemptId, passed: true });
+
     await request(app)
       .patch(`/api/v1/tests/${testBody.data.id}/assignments/${campaignId}/revoke`)
       .set('authorization', authorization)
       .send({ reason: 'Superseded training cycle' })
       .expect(200);
-    const cancelledAssignments = await prisma.assessmentAssignment.findMany({
+    const completedAssignments = await prisma.assessmentAssignment.findMany({
       where: { campaignId }
     });
-    expect(cancelledAssignments.map((assignment) => assignment.status)).toEqual(['CANCELLED']);
+    expect(completedAssignments.map((assignment) => assignment.status)).toEqual(['COMPLETED']);
 
     await request(app)
       .put(`/api/v1/tests/${testBody.data.id}`)

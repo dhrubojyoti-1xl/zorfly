@@ -442,7 +442,7 @@ function detail(record: AssessmentRecord) {
   };
 }
 
-function sanitizeContent(type: string, value: Prisma.JsonValue): unknown {
+export function sanitizeQuestionContent(type: string, value: Prisma.JsonValue): unknown {
   const content =
     typeof value === 'object' && value !== null && !Array.isArray(value)
       ? (value as Record<string, unknown>)
@@ -912,7 +912,7 @@ export function createTestRouter(
             marks: Number(link.marksOverride ?? version.defaultMarks),
             negativeMarks: Number(link.negativeMarksOverride ?? version.defaultNegativeMarks),
             categoryId: version.question.categoryId,
-            content: sanitizeContent(version.questionType.key, version.answerSchema)
+            content: sanitizeQuestionContent(version.questionType.key, version.answerSchema)
           };
         })
       }

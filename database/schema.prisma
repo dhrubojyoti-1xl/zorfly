@@ -1807,7 +1807,7 @@ model AssessmentAssignment {
   assessmentVersion      AssessmentVersion     @relation(fields: [assessmentVersionId], references: [id], onDelete: Restrict)
   membership             TenantMembership?     @relation(fields: [membershipId], references: [id], onDelete: Restrict)
   candidateApplication   CandidateApplication? @relation(fields: [candidateApplicationId], references: [id], onDelete: Restrict)
-  paper                  AssessmentPaper?
+  papers                 AssessmentPaper[]
   attempts               AssessmentAttempt[]
   retakeGrants           RetakeGrant[]
 
@@ -1820,7 +1820,7 @@ model AssessmentAssignment {
 model AssessmentPaper {
   id                  String                    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   tenantId            String                    @db.Uuid
-  assignmentId        String                    @unique @db.Uuid
+  assignmentId        String                    @db.Uuid
   assessmentVersionId String                    @db.Uuid
   randomSeed          String?                   @db.VarChar(128)
   contentHash         String                    @db.Char(64)
@@ -1834,6 +1834,7 @@ model AssessmentPaper {
   attempts            AssessmentAttempt[]
 
   @@unique([tenantId, contentHash])
+  @@index([tenantId, assignmentId, generatedAt])
   @@index([tenantId, generatedAt])
   @@schema("assessment")
 }
@@ -1882,6 +1883,7 @@ model AssessmentAttempt {
   finalScore             Decimal?                @db.Decimal(12, 4)
   percentage             Decimal?                @db.Decimal(7, 4)
   passed                 Boolean?
+  resultSummary          Json?                   @db.JsonB
   scoreVersion           Int                     @default(1)
   createdAt              DateTime                @default(now()) @db.Timestamptz(6)
   updatedAt              DateTime                @updatedAt @db.Timestamptz(6)

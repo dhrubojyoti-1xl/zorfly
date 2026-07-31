@@ -25,6 +25,7 @@ import { notFoundHandler, problemHandler } from './platform/problem.js';
 import { createCategoryRouter } from './modules/assessment/categories.router.js';
 import { createQuestionRouter } from './modules/assessment/questions.router.js';
 import { createTestRouter } from './modules/assessment/tests.router.js';
+import { createAttemptRouter } from './modules/assessment/attempts.router.js';
 
 export interface AppOptions {
   environment: ApiEnvironment;
@@ -99,6 +100,10 @@ export function createApp({ environment, version, auth, organization }: AppOptio
         createQuestionRouter(organization.prisma, auth.service, auth.tokens)
       );
       app.use('/api/v1/tests', createTestRouter(organization.prisma, auth.service, auth.tokens));
+      app.use(
+        '/api/v1/attempts',
+        createAttemptRouter(organization.prisma, auth.service, auth.tokens)
+      );
     }
   }
   app.use(notFoundHandler);
