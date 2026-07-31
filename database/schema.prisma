@@ -3100,8 +3100,11 @@ model ImageCache {
 
 model QuestionGenerationHistory {
   id                         BigInt            @id @default(autoincrement())
+  publicId                   String            @unique @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   tenantId                   String            @db.Uuid
   executionId                BigInt
+  /** Ordinal position of this draft within its execution's raw output; stable across replays/repairs. */
+  draftIndex                 Int
   sourceQuestionId           String?           @db.Uuid
   generatedQuestionVersionId String?           @db.Uuid
   request                    Json              @db.JsonB
@@ -3115,6 +3118,7 @@ model QuestionGenerationHistory {
   sourceQuestion             Question?         @relation(fields: [sourceQuestionId], references: [id], onDelete: Restrict)
   generatedQuestionVersion   QuestionVersion?  @relation("GeneratedQuestionVersion", fields: [generatedQuestionVersionId], references: [id], onDelete: Restrict)
 
+  @@unique([executionId, draftIndex])
   @@index([tenantId, createdAt])
   @@index([tenantId, generatedQuestionVersionId])
   @@schema("ai")

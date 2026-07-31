@@ -81,6 +81,7 @@ integration('AI question-generation HTTP routes (PostgreSQL-backed)', () => {
   let tenantAAdminUserId: string;
   let employeeAuthorization: string;
   let tenantACategoryId: string;
+  let tenantBId: string;
   let tenantBAuthorization: string;
   let tenantBCategoryId: string;
 
@@ -188,6 +189,7 @@ integration('AI question-generation HTTP routes (PostgreSQL-backed)', () => {
       context
     );
     if (!adminB.company) throw new Error('Expected a company for tenant B.');
+    tenantBId = adminB.company.id;
     tenantBAuthorization = `Bearer ${adminB.accessToken}`;
     const categoryB = await request(app)
       .post('/api/v1/categories')
@@ -224,51 +226,50 @@ integration('AI question-generation HTTP routes (PostgreSQL-backed)', () => {
     expect((response.body as { success: boolean }).success).toBe(false);
   });
 
+  const historyIdPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+  async function generateOneDraft(idempotencyKeySuffix: string) {
+    if (!prisma) throw new Error('TEST_DATABASE_URL is required.');
+    const idempotencyKey = `router-test-${idempotencyKeySuffix}-${randomUUID()}`;
+    const generateBody = {
+      topic: 'Customer service tone and etiquette',
+      types: ['mcq'],
+      count: 1,
+      categoryId: tenantACategoryId,
+      difficulty: 'fresher',
+      marks: 2,
+      negativeMarks: 0
+    };
+    const response = await request(app)
+      .post('/api/v1/ai/questions/generate')
+      .set('authorization', tenantAAuthorization)
+      .set('idempotency-key', idempotencyKey)
+      .send(generateBody)
+      .expect(200);
+    const body = response.body as {
+      data: { drafts: Array<Record<string, unknown> & { historyId: string; type: string }> };
+    };
+    const draft = body.data.drafts[0];
+    if (!draft) throw new Error('Expected a generated draft.');
+    return { draft, idempotencyKey, generateBody };
+  }
+
   it(
     'generates preview-only drafts idempotently, then saves a reviewed draft with full provenance, ' +
       'and rejects cross-tenant references',
     async () => {
       if (!prisma) throw new Error('TEST_DATABASE_URL is required.');
-      const idempotencyKey = `router-test-${randomUUID()}`;
-      const generateBody = {
-        topic: 'Customer service tone and etiquette',
-        types: ['mcq'],
-        count: 1,
-        categoryId: tenantACategoryId,
-        difficulty: 'fresher',
-        marks: 2,
-        negativeMarks: 0
-      };
+      const { draft, idempotencyKey, generateBody } = await generateOneDraft('main-flow');
+      expect(draft.type).toBe('mcq');
+      // Public responses must never expose the internal bigint id — only the
+      // opaque publicId (UUID) may cross the API boundary.
+      expect(draft.historyId).toMatch(historyIdPattern);
+      expect(fetchImpl).toHaveBeenCalledTimes(1);
 
       const before = await prisma.question.count({ where: { tenantId: tenantAId } });
 
-      const first = await request(app)
-        .post('/api/v1/ai/questions/generate')
-        .set('authorization', tenantAAuthorization)
-        .set('idempotency-key', idempotencyKey)
-        .send(generateBody)
-        .expect(200);
-      const firstBody = first.body as {
-        data: {
-          drafts: Array<Record<string, unknown> & { historyId: string; type: string }>;
-          generated: number;
-          valid: number;
-        };
-      };
-      expect(firstBody.data.valid).toBe(1);
-      expect(firstBody.data.drafts).toHaveLength(1);
-      const draft = firstBody.data.drafts[0]!;
-      expect(draft.type).toBe('mcq');
-      expect(typeof draft.historyId).toBe('string');
-      expect(draft.historyId.length).toBeGreaterThan(0);
-      expect(fetchImpl).toHaveBeenCalledTimes(1);
-
-      // Preview-only: generation must never persist a Question.
-      const afterGenerate = await prisma.question.count({ where: { tenantId: tenantAId } });
-      expect(afterGenerate).toBe(before);
-
       const historyRow = await prisma.questionGenerationHistory.findUniqueOrThrow({
-        where: { id: BigInt(draft.historyId) }
+        where: { publicId: draft.historyId }
       });
       expect(historyRow.tenantId).toBe(tenantAId);
       expect(historyRow.humanDecision).toBeNull();
@@ -286,11 +287,16 @@ integration('AI question-generation HTTP routes (PostgreSQL-backed)', () => {
       expect(secondBody.data.drafts[0]?.historyId).toBe(draft.historyId);
       expect(fetchImpl).toHaveBeenCalledTimes(1);
       const historyCount = await prisma.questionGenerationHistory.count({
-        where: { tenantId: tenantAId }
+        where: { tenantId: tenantAId, executionId: historyRow.executionId }
       });
       expect(historyCount).toBe(1);
 
-      // Cross-tenant category reference must be rejected, not silently accepted.
+      // Preview-only: generation (including the replay above) must never persist a Question.
+      const afterGenerate = await prisma.question.count({ where: { tenantId: tenantAId } });
+      expect(afterGenerate).toBe(before);
+
+      // Cross-tenant category reference must be rejected, not silently accepted,
+      // and the question/provenance must roll back together (no Question row left behind).
       const crossTenantSave = await request(app)
         .post('/api/v1/ai/questions/save')
         .set('authorization', tenantAAuthorization)
@@ -311,10 +317,16 @@ integration('AI question-generation HTTP routes (PostgreSQL-backed)', () => {
       };
       expect(crossTenantBody.data.created).toBe(0);
       expect(crossTenantBody.data.errors).toHaveLength(1);
+      expect(await prisma.question.count({ where: { tenantId: tenantAId } })).toBe(before);
+      const historyAfterCategoryRejection =
+        await prisma.questionGenerationHistory.findUniqueOrThrow({
+          where: { publicId: draft.historyId }
+        });
+      expect(historyAfterCategoryRejection.humanDecision).toBeNull();
 
-      // A foreign tenant attempting to redeem tenant A's historyId must not
-      // link to (or corrupt) tenant A's provenance trail — tenant isolation.
-      await request(app)
+      // A foreign tenant attempting to redeem tenant A's historyId must be
+      // rejected outright — not silently ignored, and not linked cross-tenant.
+      const crossTenantHistorySave = await request(app)
         .post('/api/v1/ai/questions/save')
         .set('authorization', tenantBAuthorization)
         .send({
@@ -336,12 +348,23 @@ integration('AI question-generation HTTP routes (PostgreSQL-backed)', () => {
           ]
         })
         .expect(201);
+      const crossTenantHistoryBody = crossTenantHistorySave.body as {
+        data: { created: number; errors: Array<{ message: string }> };
+      };
+      expect(crossTenantHistoryBody.data.created).toBe(0);
+      expect(crossTenantHistoryBody.data.errors).toHaveLength(1);
       const untouchedHistory = await prisma.questionGenerationHistory.findUniqueOrThrow({
-        where: { id: BigInt(draft.historyId) }
+        where: { publicId: draft.historyId }
       });
       expect(untouchedHistory.tenantId).toBe(tenantAId);
       expect(untouchedHistory.humanDecision).toBeNull();
       expect(untouchedHistory.generatedQuestionVersionId).toBeNull();
+      // No question was created for tenant B by that rejected attempt either.
+      expect(
+        await prisma.question.count({
+          where: { tenantId: tenantBId, title: 'Foreign tenant reusing another tenant history id' }
+        })
+      ).toBe(0);
 
       // Successful reviewed-draft persistence: valid, same-tenant save links provenance.
       const save = await request(app)
@@ -371,13 +394,146 @@ integration('AI question-generation HTTP routes (PostgreSQL-backed)', () => {
       expect(savedQuestion.tenantId).toBe(tenantAId);
 
       const decided = await prisma.questionGenerationHistory.findUniqueOrThrow({
-        where: { id: BigInt(draft.historyId) }
+        where: { publicId: draft.historyId }
       });
       expect(decided.humanDecision).toBe('accepted');
       expect(decided.generatedQuestionVersionId).toBe(savedQuestion.currentVersionId);
       expect(decided.decidedById).toBe(tenantAAdminUserId);
       expect(decided.decidedAt).not.toBeNull();
       expect(decided.executionId).not.toBeNull();
+
+      // Already-consumed history id: a second redemption attempt is rejected
+      // outright (chosen behavior — not silently re-linked, not transparently
+      // returning the first question) and does not create a second Question.
+      const duplicateRedemption = await request(app)
+        .post('/api/v1/ai/questions/save')
+        .set('authorization', tenantAAuthorization)
+        .send({
+          questions: [
+            {
+              ...draft,
+              subCategoryId: null,
+              trainingLink: '',
+              tags: ['ai-generated']
+            }
+          ]
+        })
+        .expect(201);
+      const duplicateBody = duplicateRedemption.body as {
+        data: { created: number; errors: Array<{ message: string }> };
+      };
+      expect(duplicateBody.data.created).toBe(0);
+      expect(duplicateBody.data.errors).toHaveLength(1);
+      expect(duplicateBody.data.errors[0]?.message).toMatch(/already been saved/i);
+      expect(
+        await prisma.question.count({
+          where: { tenantId: tenantAId, title: draft.title as string }
+        })
+      ).toBe(1);
+    },
+    30_000
+  );
+
+  it('rejects a malformed historyId during save and rolls back the question', async () => {
+    if (!prisma) throw new Error('TEST_DATABASE_URL is required.');
+    const before = await prisma.question.count({ where: { tenantId: tenantAId } });
+    const title = `Malformed history id ${randomUUID()}`;
+    const response = await request(app)
+      .post('/api/v1/ai/questions/save')
+      .set('authorization', tenantAAuthorization)
+      .send({
+        questions: [
+          {
+            historyId: 'not-a-valid-uuid',
+            title,
+            type: 'true_false',
+            categoryId: tenantACategoryId,
+            subCategoryId: null,
+            difficulty: 'fresher',
+            marks: 1,
+            negativeMarks: 0,
+            explanation: '',
+            trainingLink: '',
+            tags: [],
+            content: { correctAnswer: true }
+          }
+        ]
+      })
+      .expect(201);
+    const body = response.body as { data: { created: number; errors: Array<{ message: string }> } };
+    expect(body.data.created).toBe(0);
+    expect(body.data.errors).toHaveLength(1);
+    expect(body.data.errors[0]?.message).toMatch(/invalid/i);
+    // Rollback together: no Question row was left behind for the rejected save.
+    expect(await prisma.question.count({ where: { tenantId: tenantAId, title } })).toBe(0);
+    expect(await prisma.question.count({ where: { tenantId: tenantAId } })).toBe(before);
+  });
+
+  it('rejects an unknown (well-formed but nonexistent) historyId during save', async () => {
+    if (!prisma) throw new Error('TEST_DATABASE_URL is required.');
+    const title = `Unknown history id ${randomUUID()}`;
+    const response = await request(app)
+      .post('/api/v1/ai/questions/save')
+      .set('authorization', tenantAAuthorization)
+      .send({
+        questions: [
+          {
+            historyId: randomUUID(),
+            title,
+            type: 'true_false',
+            categoryId: tenantACategoryId,
+            subCategoryId: null,
+            difficulty: 'fresher',
+            marks: 1,
+            negativeMarks: 0,
+            explanation: '',
+            trainingLink: '',
+            tags: [],
+            content: { correctAnswer: true }
+          }
+        ]
+      })
+      .expect(201);
+    const body = response.body as { data: { created: number; errors: Array<{ message: string }> } };
+    expect(body.data.created).toBe(0);
+    expect(body.data.errors).toHaveLength(1);
+    expect(await prisma.question.count({ where: { tenantId: tenantAId, title } })).toBe(0);
+  });
+
+  it(
+    'repairs QuestionGenerationHistory on replay after an interrupted write, without ever ' +
+      'returning an empty historyId for a valid draft',
+    async () => {
+      if (!prisma) throw new Error('TEST_DATABASE_URL is required.');
+      const { draft, idempotencyKey, generateBody } = await generateOneDraft('crash-recovery');
+      expect(draft.historyId).toMatch(historyIdPattern);
+
+      // Simulate a crash between the AI execution succeeding and the history
+      // row being recorded: delete the row the first call just wrote.
+      await prisma.questionGenerationHistory.deleteMany({ where: { publicId: draft.historyId } });
+      expect(
+        await prisma.questionGenerationHistory.findUnique({ where: { publicId: draft.historyId } })
+      ).toBeNull();
+
+      // Replay with the same Idempotency-Key: the AI execution is reused
+      // (cached output, no new provider call), but the missing history row
+      // must be repaired/backfilled rather than coming back empty.
+      const repaired = await request(app)
+        .post('/api/v1/ai/questions/generate')
+        .set('authorization', tenantAAuthorization)
+        .set('idempotency-key', idempotencyKey)
+        .send(generateBody)
+        .expect(200);
+      const repairedBody = repaired.body as { data: { drafts: Array<{ historyId: string }> } };
+      const repairedHistoryId = repairedBody.data.drafts[0]?.historyId;
+      if (!repairedHistoryId) throw new Error('Expected a repaired historyId.');
+      expect(repairedHistoryId).toMatch(historyIdPattern);
+      // fetchImpl was not called again — the execution itself was reused.
+      const historyRow = await prisma.questionGenerationHistory.findUniqueOrThrow({
+        where: { publicId: repairedHistoryId }
+      });
+      expect(historyRow.tenantId).toBe(tenantAId);
+      expect(historyRow.draftIndex).toBe(0);
     },
     30_000
   );

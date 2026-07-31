@@ -16,10 +16,8 @@ import {
 import type { AiExecutionService } from './ai.service.js';
 import {
   linkGenerationDecision,
-  loadGenerationDrafts,
-  recordGenerationDrafts,
   resolveExecutionPlan,
-  type GenerationHistoryRef
+  upsertGenerationDrafts
 } from './ai.repository.js';
 import {
   aiQuestionTypes,
@@ -123,25 +121,30 @@ export function createAiRouter(
         const rawItems = result.output.questions;
         const parsed = rawItems.map((item) => draftToQuestionCore(item));
 
-        const historyRows: GenerationHistoryRef[] = result.reused
-          ? await loadGenerationDrafts(prisma, auth.tenantId, result.executionId)
-          : await recordGenerationDrafts(
-              prisma,
-              auth.tenantId,
-              result.executionId,
-              parsed.map((draft) => ({
-                request: {
-                  topic: body.topic,
-                  difficulty: body.difficulty,
-                  count: body.count,
-                  types: body.types ?? null,
-                  instructions: body.instructions ?? null
-                } as Prisma.InputJsonValue,
-                validationResult: (draft
-                  ? { valid: true, type: draft.type }
-                  : { valid: false }) as Prisma.InputJsonValue
-              }))
-            );
+        // Idempotent and crash-safe: existing rows for this execution are left
+        // untouched, and any missing (e.g. a prior request that succeeded at
+        // the AI call but was interrupted before history was recorded) are
+        // backfilled here — this always runs, whether or not the execution
+        // itself was reused, so a valid draft never comes back without a
+        // historyId.
+        const historyRows = await upsertGenerationDrafts(
+          prisma,
+          auth.tenantId,
+          result.executionId,
+          parsed.map((draft, index) => ({
+            draftIndex: index,
+            request: {
+              topic: body.topic,
+              difficulty: body.difficulty,
+              count: body.count,
+              types: body.types ?? null,
+              instructions: body.instructions ?? null
+            } as Prisma.InputJsonValue,
+            validationResult: (draft
+              ? { valid: true, type: draft.type }
+              : { valid: false }) as Prisma.InputJsonValue
+          }))
+        );
 
         const drafts: Array<QuestionDraft & { historyId: string }> = [];
         parsed.forEach((draft, index) => {
