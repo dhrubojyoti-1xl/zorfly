@@ -6,9 +6,11 @@ The persisted AI control-plane entities and invariants are specified in
 
 ## Status
 
-This document defines readiness boundaries for future AI capabilities. It does
-not select a product feature, prompt, text model, embedding model, or autonomous
-workflow.
+The provider-neutral execution contract is implemented in `packages/ai-core`.
+It defines normalized capabilities, requests, responses, usage, errors,
+timeouts, bounded retry, capability routing, fallback, output validation, and
+provider-independent telemetry events. Provider credentials, persistence,
+budgets, prompt workflows, and tool execution remain server-side concerns.
 
 ## Principles
 
@@ -65,7 +67,7 @@ snapshot of approved configuration.
 
 ## Provider-neutral contracts
 
-`packages/ai-core` will define application-owned concepts:
+`packages/ai-core` defines application-owned concepts:
 
 - `AiCapability`, not provider model names;
 - normalized input parts for text, images, files, and structured data;
