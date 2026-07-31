@@ -1,0 +1,90 @@
+# Dependencies
+node_modules/
+.pnp/
+.pnp.js
+.yarn/cache/
+.yarn/install-state.gz
+
+# Build outputs
+.next/
+out/
+dist/
+build/
+coverage/
+.turbo/
+.swc/
+*.tsbuildinfo
+
+# Test artifacts
+test-results/
+playwright-report/
+blob-report/
+.nyc_output/
+
+# Runtime data
+*.pid
+*.pid.lock
+*.seed
+*.log
+logs/
+tmp/
+temp/
+
+# Environment and secrets
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.pfx
+secrets/
+
+# Database
+*.sqlite
+*.sqlite3
+*.db
+database/backups/
+database/dumps/
+
+# Infrastructure and deployment
+.terraform/
+*.tfstate
+*.tfstate.*
+.serverless/
+.aws-sam/
+cdk.out/
+
+# Package manager and tool caches
+.npm/
+.pnpm-store/
+.eslintcache
+.stylelintcache
+.cache/
+
+# Editors
+.idea/
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+*.sublime-project
+*.sublime-workspace
+*.swp
+*.swo
+*~
+
+# Operating systems
+.DS_Store
+.AppleDouble
+.LSOverride
+Thumbs.db
+Desktop.ini
+
+# Local certificates and generated documentation
+certs/
+docs/generated/
+
+# Keep lockfiles committed for reproducible builds.
+!package-lock.json
+!pnpm-lock.yaml
+!yarn.lock

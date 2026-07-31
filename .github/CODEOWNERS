@@ -1,0 +1,9 @@
+# Initial ownership. Replace the individual owner with teams as Zorfly grows.
+* @workspace1xl-cmd
+
+# Sensitive areas should retain explicit ownership.
+/.github/ @workspace1xl-cmd
+/database/ @workspace1xl-cmd
+/docker/ @workspace1xl-cmd
+/docs/ @workspace1xl-cmd
+/SECURITY.md @workspace1xl-cmd
