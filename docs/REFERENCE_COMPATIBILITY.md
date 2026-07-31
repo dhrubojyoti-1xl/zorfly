@@ -147,6 +147,9 @@ The following compatibility slices are implemented on PostgreSQL:
 - fixed and random test authoring, candidate-safe preview, plan limits, draft
   mutability, immutable publication snapshots, lifecycle transitions, and
   Team Leader authoring scope.
+- multi-target test assignment, tenant-safe audience expansion, materialized
+  per-person work, assignment history, optional due dates, own-team scope, and
+  audited revocation that leaves started work intact.
 
 Organization writes are transactional where multiple records are involved.
 References are resolved inside the authenticated tenant, employee removal is a

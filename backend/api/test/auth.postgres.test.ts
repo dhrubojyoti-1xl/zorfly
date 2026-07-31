@@ -472,6 +472,52 @@ integration('Prisma/PostgreSQL authentication repository', () => {
     expect(published.status).toBe('PUBLISHED');
     expect(Number(published.currentVersion?.totalMarks)).toBe(5);
     expect(Number(published.currentVersion?.passingMarks)).toBe(3);
+
+    await request(app)
+      .post(`/api/v1/tests/${testBody.data.id}/assign`)
+      .set('authorization', authorization)
+      .send({
+        targetType: 'team',
+        targetIds: [teamBody.data.id],
+        targetKeys: [],
+        dueAt: null
+      })
+      .expect(201);
+    const assignmentHistoryResponse = await request(app)
+      .get(`/api/v1/tests/${testBody.data.id}/assignments`)
+      .set('authorization', authorization)
+      .expect(200);
+    const assignmentHistoryBody = assignmentHistoryResponse.body as {
+      data: {
+        rows: Array<{
+          id: string;
+          targetType: string;
+          targetLabel: string;
+          status: string;
+          employeesAssigned: number;
+        }>;
+        totalCount: number;
+      };
+    };
+    expect(assignmentHistoryBody.data.totalCount).toBe(1);
+    expect(assignmentHistoryBody.data.rows[0]).toMatchObject({
+      targetType: 'team',
+      targetLabel: 'Platform',
+      status: 'active',
+      employeesAssigned: 1
+    });
+    const campaignId = assignmentHistoryBody.data.rows[0]?.id;
+    if (!campaignId) throw new Error('Expected an assignment campaign.');
+    await request(app)
+      .patch(`/api/v1/tests/${testBody.data.id}/assignments/${campaignId}/revoke`)
+      .set('authorization', authorization)
+      .send({ reason: 'Superseded training cycle' })
+      .expect(200);
+    const cancelledAssignments = await prisma.assessmentAssignment.findMany({
+      where: { campaignId }
+    });
+    expect(cancelledAssignments.map((assignment) => assignment.status)).toEqual(['CANCELLED']);
+
     await request(app)
       .put(`/api/v1/tests/${testBody.data.id}`)
       .set('authorization', authorization)

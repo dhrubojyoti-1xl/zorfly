@@ -3,9 +3,12 @@ import { Router, type Request } from 'express';
 import { z } from 'zod';
 import {
   AssessmentStatus,
+  AssignmentSource,
   AssignmentStatus,
+  MembershipStatus,
   RecordStatus,
   SubscriptionStatus,
+  TargetScopeType,
   VersionStatus,
   type Prisma,
   type ZorflyPrismaClient
@@ -18,7 +21,7 @@ import type { AuthService } from '../auth/auth.service.js';
 import type { RequestContext, SessionPrincipal } from '../auth/auth.types.js';
 import type { TokenService } from '../auth/tokens.js';
 import type { difficultyKeys } from './question.validation.js';
-import { testSchema, type TestInput } from './test.validation.js';
+import { assignSchema, revokeSchema, testSchema, type TestInput } from './test.validation.js';
 
 const uuid = z.uuid();
 const difficultyCodes: Record<(typeof difficultyKeys)[number], string> = {
@@ -306,7 +309,10 @@ const assessmentInclude = {
         }
       },
       poolRules: true,
-      assignments: true
+      assignments: true,
+      campaigns: {
+        include: { targetScopes: true, assignments: true }
+      }
     }
   },
   schedules: true
@@ -342,15 +348,10 @@ function categoryCompatibility(record: AssessmentRecord) {
 }
 
 function assignmentCounts(record: AssessmentRecord) {
-  const assignments = record.currentVersion?.assignments ?? [];
-  const activeStatuses: AssignmentStatus[] = [
-    AssignmentStatus.PENDING,
-    AssignmentStatus.AVAILABLE,
-    AssignmentStatus.IN_PROGRESS
-  ];
+  const campaigns = record.currentVersion?.campaigns ?? [];
   return {
-    total: assignments.length,
-    active: assignments.filter((assignment) => activeStatuses.includes(assignment.status)).length
+    total: campaigns.length,
+    active: campaigns.filter((campaign) => campaignState(campaign.settings) === 'active').length
   };
 }
 
@@ -365,6 +366,18 @@ function lifecycle(record: AssessmentRecord) {
   if (schedules.length > 0) return { status: 'scheduled', scheduleText: 'Recurring schedule' };
   if (counts.active > 0) return { status: 'active', scheduleText: 'Assigned' };
   return { status: 'published', scheduleText: '' };
+}
+
+function campaignState(value: Prisma.JsonValue | null): string {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return 'active';
+  const status = (value as Record<string, unknown>).status;
+  return typeof status === 'string' ? status : 'active';
+}
+
+function campaignSettings(value: Prisma.JsonValue | null): Record<string, unknown> {
+  return value && typeof value === 'object' && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : {};
 }
 
 function questionCompatibility(
@@ -469,6 +482,164 @@ function sanitizeContent(type: string, value: Prisma.JsonValue): unknown {
       : { mode: 'match', left: content.left ?? [], right: content.right ?? [] };
   }
   throw new ApiError(500, `Unknown question type: ${type}`);
+}
+
+type AssignmentTargetType = 'company' | 'department' | 'team' | 'employee' | 'role' | 'difficulty';
+
+interface ResolvedAssignmentTarget {
+  scopeType: TargetScopeType;
+  targetId: string | null;
+  targetValue: string | null;
+  label: string;
+  audience: Array<{
+    id: string;
+    userId: string;
+    user: { displayName: string | null; emailCanonical: string };
+  }>;
+}
+
+async function resolveAssignmentTarget(
+  transaction: Prisma.TransactionClient,
+  tenantId: string,
+  targetType: AssignmentTargetType,
+  targetValue: string | null
+): Promise<ResolvedAssignmentTarget> {
+  const activeMembership = {
+    tenantId,
+    status: MembershipStatus.ACTIVE,
+    deletedAt: null
+  } as const;
+  if (targetType === 'company') {
+    return {
+      scopeType: TargetScopeType.TENANT,
+      targetId: tenantId,
+      targetValue: null,
+      label: 'Whole Company',
+      audience: await transaction.tenantMembership.findMany({
+        where: {
+          ...activeMembership,
+          roles: { none: { role: { key: roles.companyAdmin } } }
+        },
+        include: { user: true }
+      })
+    };
+  }
+  if (!targetValue) throw new ApiError(422, 'Select who to assign the test to.');
+  if (targetType === 'department') {
+    const department = await transaction.department.findFirst({
+      where: { id: targetValue, tenantId, status: RecordStatus.ACTIVE, deletedAt: null }
+    });
+    if (!department) throw new ApiError(422, 'Invalid value.');
+    return {
+      scopeType: TargetScopeType.DEPARTMENT,
+      targetId: department.id,
+      targetValue,
+      label: department.name,
+      audience: await transaction.tenantMembership.findMany({
+        where: { ...activeMembership, departmentId: department.id },
+        include: { user: true }
+      })
+    };
+  }
+  if (targetType === 'team') {
+    const team = await transaction.team.findFirst({
+      where: { id: targetValue, tenantId, status: RecordStatus.ACTIVE, deletedAt: null }
+    });
+    if (!team) throw new ApiError(422, 'Invalid value.');
+    return {
+      scopeType: TargetScopeType.TEAM,
+      targetId: team.id,
+      targetValue,
+      label: team.name,
+      audience: await transaction.tenantMembership.findMany({
+        where: {
+          ...activeMembership,
+          teams: { some: { teamId: team.id, endsAt: null } }
+        },
+        include: { user: true }
+      })
+    };
+  }
+  if (targetType === 'employee') {
+    const membership = await transaction.tenantMembership.findFirst({
+      where: { ...activeMembership, userId: targetValue },
+      include: { user: true }
+    });
+    if (!membership) throw new ApiError(422, 'Invalid value.');
+    return {
+      scopeType: TargetScopeType.MEMBERSHIP,
+      targetId: membership.id,
+      targetValue,
+      label: membership.user.displayName ?? membership.user.emailCanonical,
+      audience: [membership]
+    };
+  }
+  if (targetType === 'role') {
+    if (targetValue === roles.companyAdmin) throw new ApiError(422, 'Invalid value.');
+    const role = await transaction.tenantRole.findFirst({
+      where: {
+        tenantId,
+        key: targetValue,
+        status: RecordStatus.ACTIVE,
+        deletedAt: null
+      }
+    });
+    if (!role) throw new ApiError(422, 'Invalid value.');
+    return {
+      scopeType: TargetScopeType.ROLE,
+      targetId: role.id,
+      targetValue,
+      label: role.name,
+      audience: await transaction.tenantMembership.findMany({
+        where: {
+          ...activeMembership,
+          roles: {
+            some: {
+              roleId: role.id,
+              OR: [{ expiresAt: null }, { expiresAt: { gt: new Date() } }]
+            }
+          }
+        },
+        include: { user: true }
+      })
+    };
+  }
+  const difficulty = await transaction.difficultyLevel.findFirst({
+    where: {
+      tenantId,
+      code: difficultyCodes[targetValue as keyof typeof difficultyCodes] ?? '',
+      status: RecordStatus.ACTIVE,
+      deletedAt: null
+    }
+  });
+  if (!difficulty) throw new ApiError(422, 'Invalid value.');
+  return {
+    scopeType: TargetScopeType.TENANT,
+    targetId: null,
+    targetValue,
+    label: difficulty.name,
+    audience: await transaction.tenantMembership.findMany({
+      where: { ...activeMembership, employmentLevel: targetValue },
+      include: { user: true }
+    })
+  };
+}
+
+async function ledTeamIds(
+  prisma: ZorflyPrismaClient,
+  tenantId: string,
+  userId: string
+): Promise<string[]> {
+  const rows = await prisma.teamMembership.findMany({
+    where: {
+      tenantId,
+      isLead: true,
+      endsAt: null,
+      membership: { userId, status: MembershipStatus.ACTIVE, deletedAt: null }
+    },
+    select: { teamId: true }
+  });
+  return rows.map((row) => row.teamId);
 }
 
 export function createTestRouter(
@@ -886,6 +1057,305 @@ export function createTestRouter(
       response.json({
         success: true,
         data: { id, state: 'published', message: 'Test published successfully.' }
+      });
+    }
+  );
+
+  router.post(
+    '/:id/assign',
+    createRequirePermission(service, 'tests:manage'),
+    validate(assignSchema),
+    async (request, response) => {
+      const auth = principal(request);
+      const id = uuid.parse(request.params.id);
+      const input = assignSchema.parse(request.body);
+      const record = await prisma.assessmentDefinition.findFirst({
+        where: {
+          id,
+          tenantId: auth.tenantId,
+          deletedAt: null,
+          ...(auth.role === roles.teamLeader ? { createdById: auth.userId } : {})
+        },
+        include: { currentVersion: true }
+      });
+      if (!record?.currentVersion) {
+        throw new ApiError(404, 'The requested test was not found.');
+      }
+      if (record.status !== AssessmentStatus.PUBLISHED) {
+        throw new ApiError(422, 'Publish the test before assigning it.');
+      }
+      const assessmentVersion = record.currentVersion;
+      const usesIds = ['department', 'team', 'employee'].includes(input.targetType);
+      const usesKeys = ['role', 'difficulty'].includes(input.targetType);
+      if (
+        (usesIds && input.targetIds.length === 0) ||
+        (usesKeys && input.targetKeys.length === 0)
+      ) {
+        throw new ApiError(422, 'Select who to assign the test to.');
+      }
+      if (auth.role === roles.teamLeader) {
+        const permitted = await ledTeamIds(prisma, auth.tenantId, auth.userId);
+        if (
+          input.targetType !== 'team' ||
+          input.targetIds.some((teamId) => !permitted.includes(teamId))
+        ) {
+          throw new ApiError(403, 'Team Leaders can assign tests to their own teams only.');
+        }
+      }
+      const values =
+        input.targetType === 'company' ? [null] : usesKeys ? input.targetKeys : input.targetIds;
+      const dueAt = input.dueAt ? new Date(input.dueAt) : null;
+      const created = await prisma.$transaction(async (transaction) => {
+        const campaigns: Array<{
+          id: string;
+          target: ResolvedAssignmentTarget;
+        }> = [];
+        for (const value of values) {
+          const target = await resolveAssignmentTarget(
+            transaction,
+            auth.tenantId,
+            input.targetType,
+            value
+          );
+          const campaign = await transaction.assignmentCampaign.create({
+            data: {
+              tenantId: auth.tenantId,
+              assessmentVersionId: assessmentVersion.id,
+              source: AssignmentSource.MANUAL,
+              name: `${record.title} — ${target.label}`.slice(0, 200),
+              opensAt: new Date(),
+              dueAt,
+              maxAttempts: assessmentVersion.maxAttempts,
+              settings: {
+                compatibility: 'one-xl',
+                status: 'active',
+                targetType: input.targetType,
+                targetValue: target.targetValue,
+                targetLabel: target.label
+              },
+              createdById: auth.userId,
+              targetScopes: {
+                create: {
+                  tenantId: auth.tenantId,
+                  scopeType: target.scopeType,
+                  targetId: target.targetId,
+                  ...(target.targetValue && !target.targetId
+                    ? { filter: { key: target.targetValue } }
+                    : {})
+                }
+              }
+            }
+          });
+          if (target.audience.length > 0) {
+            await transaction.assessmentAssignment.createMany({
+              data: target.audience.map((membership) => ({
+                tenantId: auth.tenantId,
+                campaignId: campaign.id,
+                assessmentVersionId: assessmentVersion.id,
+                membershipId: membership.id,
+                source: AssignmentSource.MANUAL,
+                status: AssignmentStatus.AVAILABLE,
+                availableAt: new Date(),
+                dueAt,
+                maxAttempts: assessmentVersion.maxAttempts,
+                createdById: auth.userId
+              }))
+            });
+          }
+          campaigns.push({ id: campaign.id, target });
+        }
+        return campaigns;
+      });
+      const notifiedUsers = new Set<string>();
+      for (const campaign of created) {
+        for (const membership of campaign.target.audience) {
+          notifiedUsers.add(membership.userId);
+          service.sendNotification({
+            to: membership.user.emailCanonical,
+            subject: `New test assigned: ${record.title}`,
+            html: `<p>Hello ${membership.user.displayName ?? 'there'}, the test <strong>${record.title}</strong> has been assigned to you${dueAt ? ` and is due by ${dueAt.toLocaleDateString('en-GB')}` : ''}.</p>`,
+            type: 'test_assigned',
+            tenantId: auth.tenantId
+          });
+        }
+      }
+      await service.recordAudit(
+        {
+          action: 'test.assigned',
+          actorUserId: auth.userId,
+          tenantId: auth.tenantId,
+          entityType: 'assessment',
+          entityId: id,
+          metadata: {
+            targetType: input.targetType,
+            campaignCount: created.length,
+            employeeCount: notifiedUsers.size
+          }
+        },
+        context(request)
+      );
+      response.status(201).json({
+        success: true,
+        data: {
+          message: `Test assigned to ${String(created.length)} target${created.length === 1 ? '' : 's'}. ${String(notifiedUsers.size)} employee${notifiedUsers.size === 1 ? '' : 's'} notified.`
+        }
+      });
+    }
+  );
+
+  router.get('/:id/assignments', async (request, response) => {
+    const auth = principal(request);
+    const id = uuid.parse(request.params.id);
+    const record = await prisma.assessmentDefinition.findFirst({
+      where: {
+        id,
+        tenantId: auth.tenantId,
+        deletedAt: null,
+        ...(auth.role === roles.teamLeader ? { createdById: auth.userId } : {})
+      },
+      include: {
+        versions: {
+          include: {
+            campaigns: {
+              include: { assignments: true, targetScopes: true },
+              orderBy: { createdAt: 'desc' }
+            }
+          }
+        }
+      }
+    });
+    if (!record) throw new ApiError(404, 'The requested test was not found.');
+    const campaigns = record.versions.flatMap((version) => version.campaigns);
+    const creatorIds = [
+      ...new Set(
+        campaigns
+          .map((campaign) => campaign.createdById)
+          .filter((userId): userId is string => Boolean(userId))
+      )
+    ];
+    const creators = await prisma.user.findMany({
+      where: { id: { in: creatorIds } },
+      select: { id: true, displayName: true }
+    });
+    const creatorById = new Map(creators.map((user) => [user.id, user.displayName]));
+    const rows = campaigns.map((campaign) => {
+      const settings = campaignSettings(campaign.settings);
+      const completed = new Set(
+        campaign.assignments
+          .filter(
+            (assignment) =>
+              assignment.status === AssignmentStatus.SUBMITTED ||
+              assignment.status === AssignmentStatus.COMPLETED
+          )
+          .map((assignment) => assignment.membershipId)
+      ).size;
+      const assigned = campaign.assignments.length;
+      return {
+        id: campaign.id,
+        targetType: typeof settings.targetType === 'string' ? settings.targetType : 'company',
+        targetLabel:
+          typeof settings.targetLabel === 'string' ? settings.targetLabel : campaign.name,
+        status: campaignState(campaign.settings),
+        dueAt: campaign.dueAt,
+        recurring: campaign.source === AssignmentSource.SCHEDULE,
+        assignedAt: campaign.createdAt,
+        employeesAssigned: assigned,
+        completed,
+        pending: Math.max(0, assigned - completed),
+        completionPct: assigned > 0 ? Math.round((completed / assigned) * 100) : 0,
+        createdBy: campaign.createdById ? (creatorById.get(campaign.createdById) ?? '—') : '—'
+      };
+    });
+    response.json({
+      success: true,
+      data: { rows, totalCount: rows.length }
+    });
+  });
+
+  router.patch(
+    '/:id/assignments/:assignmentId/revoke',
+    createRequirePermission(service, 'tests:manage'),
+    validate(revokeSchema),
+    async (request, response) => {
+      const auth = principal(request);
+      const id = uuid.parse(request.params.id);
+      const assignmentId = uuid.parse(request.params.assignmentId);
+      const input = revokeSchema.parse(request.body);
+      const campaign = await prisma.assignmentCampaign.findFirst({
+        where: {
+          id: assignmentId,
+          tenantId: auth.tenantId,
+          assessmentVersion: {
+            assessmentId: id,
+            ...(auth.role === roles.teamLeader ? { assessment: { createdById: auth.userId } } : {})
+          }
+        },
+        include: {
+          assignments: {
+            where: {
+              status: {
+                in: [AssignmentStatus.PENDING, AssignmentStatus.AVAILABLE]
+              }
+            },
+            include: { membership: { include: { user: true } } }
+          }
+        }
+      });
+      if (!campaign || campaignState(campaign.settings) !== 'active') {
+        throw new ApiError(404, 'This assignment is no longer active and cannot be revoked.');
+      }
+      const now = new Date();
+      const settings = campaignSettings(campaign.settings);
+      await prisma.$transaction([
+        prisma.assessmentAssignment.updateMany({
+          where: {
+            campaignId: campaign.id,
+            status: { in: [AssignmentStatus.PENDING, AssignmentStatus.AVAILABLE] }
+          },
+          data: { status: AssignmentStatus.CANCELLED, rowVersion: { increment: 1 } }
+        }),
+        prisma.assignmentCampaign.update({
+          where: { id: campaign.id },
+          data: {
+            settings: {
+              ...settings,
+              status: 'revoked',
+              revokedAt: now.toISOString(),
+              reason: input.reason ?? null
+            }
+          }
+        })
+      ]);
+      for (const assignment of campaign.assignments) {
+        if (!assignment.membership) continue;
+        service.sendNotification({
+          to: assignment.membership.user.emailCanonical,
+          subject: `Assignment revoked: ${campaign.name}`,
+          html: `<p>Hello ${assignment.membership.user.displayName ?? 'there'}, this test assignment has been withdrawn.${input.reason ? ` Reason: ${input.reason}` : ''}</p>`,
+          type: 'test_revoked',
+          tenantId: auth.tenantId
+        });
+      }
+      await service.recordAudit(
+        {
+          action: 'assignment.revoked',
+          actorUserId: auth.userId,
+          tenantId: auth.tenantId,
+          entityType: 'assignment_campaign',
+          entityId: campaign.id,
+          metadata: {
+            testId: id,
+            reason: input.reason ?? null,
+            notifiedCount: campaign.assignments.length
+          }
+        },
+        context(request)
+      );
+      response.json({
+        success: true,
+        data: {
+          message: `Assignment revoked. ${String(campaign.assignments.length)} employee${campaign.assignments.length === 1 ? '' : 's'} notified.`
+        }
       });
     }
   );

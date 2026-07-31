@@ -1751,7 +1751,7 @@ model AssignmentCampaign {
   source              AssignmentSource
   name                String                  @db.VarChar(200)
   opensAt             DateTime                @db.Timestamptz(6)
-  dueAt               DateTime                @db.Timestamptz(6)
+  dueAt               DateTime?               @db.Timestamptz(6)
   closesAt            DateTime?               @db.Timestamptz(6)
   maxAttempts         Int
   settings            Json?                   @db.JsonB
@@ -1794,7 +1794,7 @@ model AssessmentAssignment {
   source                 AssignmentSource
   status                 AssignmentStatus      @default(PENDING)
   availableAt            DateTime              @db.Timestamptz(6)
-  dueAt                  DateTime              @db.Timestamptz(6)
+  dueAt                  DateTime?             @db.Timestamptz(6)
   closesAt               DateTime?             @db.Timestamptz(6)
   maxAttempts            Int
   attemptCount           Int                   @default(0)

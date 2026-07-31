@@ -67,3 +67,16 @@ export const testSchema = z.object({
 });
 
 export type TestInput = z.output<typeof testSchema>;
+
+export const assignSchema = z.object({
+  targetType: z.enum(['company', 'department', 'team', 'employee', 'role', 'difficulty'], {
+    error: 'Assignment target is required.'
+  }),
+  targetIds: z.array(uuid).max(100).optional().default([]),
+  targetKeys: z.array(z.string().trim().max(50)).max(100).optional().default([]),
+  dueAt: z.iso.datetime({ offset: true }).optional().nullable()
+});
+
+export const revokeSchema = z.object({
+  reason: z.string().trim().max(500).optional().nullable()
+});
