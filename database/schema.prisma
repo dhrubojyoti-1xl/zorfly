@@ -971,23 +971,25 @@ model TeamMembership {
 }
 
 model TenantRole {
-  id          String                 @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  tenantId    String                 @db.Uuid
-  key         String                 @db.VarChar(80)
-  name        String                 @db.VarChar(120)
-  description String?                @db.VarChar(500)
-  isSystem    Boolean                @default(false)
-  status      RecordStatus           @default(ACTIVE)
-  createdAt   DateTime               @default(now()) @db.Timestamptz(6)
-  updatedAt   DateTime               @updatedAt @db.Timestamptz(6)
-  createdById String?                @db.Uuid
-  updatedById String?                @db.Uuid
-  deletedAt   DateTime?              @db.Timestamptz(6)
-  deletedById String?                @db.Uuid
-  rowVersion  Int                    @default(1)
-  tenant      Tenant                 @relation(fields: [tenantId], references: [id], onDelete: Restrict)
-  permissions TenantRolePermission[]
-  memberships MembershipRole[]
+  id                    String                 @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId              String                 @db.Uuid
+  key                   String                 @db.VarChar(80)
+  name                  String                 @db.VarChar(120)
+  description           String?                @db.VarChar(500)
+  rank                  Int                    @default(5) @db.SmallInt
+  isSystem              Boolean                @default(false)
+  permissionsCustomized Boolean                @default(false)
+  status                RecordStatus           @default(ACTIVE)
+  createdAt             DateTime               @default(now()) @db.Timestamptz(6)
+  updatedAt             DateTime               @updatedAt @db.Timestamptz(6)
+  createdById           String?                @db.Uuid
+  updatedById           String?                @db.Uuid
+  deletedAt             DateTime?              @db.Timestamptz(6)
+  deletedById           String?                @db.Uuid
+  rowVersion            Int                    @default(1)
+  tenant                Tenant                 @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  permissions           TenantRolePermission[]
+  memberships           MembershipRole[]
 
   @@unique([tenantId, key])
   @@index([tenantId, status, deletedAt])

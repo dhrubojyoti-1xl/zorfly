@@ -244,6 +244,25 @@ export class AuthService {
     return { user, company, role: principal.role, companies, permissions };
   }
 
+  public async hasAnyPermission(
+    principal: SessionPrincipal,
+    needed: readonly string[]
+  ): Promise<boolean> {
+    if (principal.role === roles.companyAdmin) return true;
+    const permissions = await this.options.repository.resolvePermissions(
+      principal.tenantId,
+      principal.role
+    );
+    return needed.some((permission) => permissions.includes(permission));
+  }
+
+  public async recordAudit(
+    event: Parameters<AuthRepository['audit']>[0],
+    context: RequestContext
+  ): Promise<void> {
+    await this.options.repository.audit(event, context);
+  }
+
   public async updateProfile(userId: string, input: UpdateProfileInput, context: RequestContext) {
     const user = await this.options.repository.updateProfile(userId, {
       fullName: input.fullName,

@@ -2,6 +2,7 @@ import type { RequestHandler } from 'express';
 import { ApiError } from '../../platform/api-error.js';
 import { runWithRequestContext } from '../../platform/request-context.js';
 import type { TokenService } from './tokens.js';
+import type { AuthService } from './auth.service.js';
 
 export function createRequireAuth(tokens: TokenService): RequestHandler {
   return (request, _response, next) => {
@@ -49,5 +50,19 @@ export function requireRole(...allowedRoles: string[]): RequestHandler {
       return;
     }
     next();
+  };
+}
+
+export function createRequirePermission(service: AuthService, ...needed: string[]): RequestHandler {
+  return async (request, _response, next) => {
+    if (!request.auth) {
+      next(new ApiError(401, 'Authentication is required.'));
+      return;
+    }
+    if (await service.hasAnyPermission(request.auth, needed)) {
+      next();
+      return;
+    }
+    next(new ApiError(403, 'You do not have permission to perform this action.'));
   };
 }

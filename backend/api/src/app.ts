@@ -5,10 +5,15 @@ import express, { type Express } from 'express';
 import helmet from 'helmet';
 import { pinoHttp } from 'pino-http';
 import type { ApiEnvironment } from '@zorfly/config';
+import type { ZorflyPrismaClient } from '@zorfly/database';
 import { createAuthRouter } from './modules/auth/auth.router.js';
 import type { AuthService } from './modules/auth/auth.service.js';
 import type { TokenService } from './modules/auth/tokens.js';
 import { createHealthRouter } from './modules/health/health.router.js';
+import {
+  createCompanyRouter,
+  createRoleRouter
+} from './modules/organization/organization.router.js';
 import { createLogger } from './platform/logger.js';
 import { notFoundHandler, problemHandler } from './platform/problem.js';
 
@@ -19,9 +24,12 @@ export interface AppOptions {
     service: AuthService;
     tokens: TokenService;
   };
+  organization?: {
+    prisma: ZorflyPrismaClient;
+  };
 }
 
-export function createApp({ environment, version, auth }: AppOptions): Express {
+export function createApp({ environment, version, auth, organization }: AppOptions): Express {
   const app = express();
   const logger = createLogger(environment.LOG_LEVEL);
 
@@ -54,6 +62,13 @@ export function createApp({ environment, version, auth }: AppOptions): Express {
   app.use('/api/v1/health', createHealthRouter(version));
   if (auth) {
     app.use('/api/v1/auth', createAuthRouter(auth.service, auth.tokens, environment));
+    if (organization) {
+      app.use(
+        '/api/v1/companies',
+        createCompanyRouter(organization.prisma, auth.service, auth.tokens)
+      );
+      app.use('/api/v1/roles', createRoleRouter(organization.prisma, auth.service, auth.tokens));
+    }
   }
   app.use(notFoundHandler);
   app.use(problemHandler);

@@ -1,0 +1,3 @@
+ALTER TABLE "core"."TenantRole"
+ADD COLUMN "rank" SMALLINT NOT NULL DEFAULT 5,
+ADD COLUMN "permissionsCustomized" BOOLEAN NOT NULL DEFAULT false;

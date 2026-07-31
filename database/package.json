@@ -15,7 +15,7 @@
     "build": "pnpm generate && tsc -p tsconfig.json",
     "clean": "rm -rf dist generated",
     "generate": "prisma generate --schema schema.prisma",
-    "lint": "eslint src",
+    "lint": "pnpm generate && eslint src",
     "test": "vitest run --passWithNoTests",
     "test:coverage": "vitest run --coverage --passWithNoTests",
     "typecheck": "pnpm generate && tsc -p tsconfig.json --noEmit",

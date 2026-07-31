@@ -1,6 +1,9 @@
 import { randomUUID } from 'node:crypto';
+import request from 'supertest';
 import { afterAll, describe, expect, it } from 'vitest';
+import { parseApiEnvironment } from '@zorfly/config';
 import { createPrismaClient } from '@zorfly/database';
+import { createApp } from '../src/app.js';
 import { AuthService } from '../src/modules/auth/auth.service.js';
 import { passwordHasher } from '../src/modules/auth/password.js';
 import { PrismaAuthRepository } from '../src/modules/auth/prisma-auth.repository.js';
@@ -77,5 +80,73 @@ integration('Prisma/PostgreSQL authentication repository', () => {
     await expect(service.refreshSession(selected.refreshToken, context)).rejects.toMatchObject({
       statusCode: 401
     });
-  }, 15_000);
+
+    const environment = parseApiEnvironment({
+      NODE_ENV: 'test',
+      LOG_LEVEL: 'silent',
+      DATABASE_URL: connectionString,
+      SESSION_SIGNING_KEY: 'integration-signing-key-with-at-least-32-characters',
+      SESSION_HASH_KEY: hashKey
+    });
+    const app = createApp({
+      environment,
+      version: 'test',
+      auth: { service, tokens },
+      organization: { prisma }
+    });
+    const authorization = `Bearer ${selected.accessToken}`;
+    const rolesResponse = await request(app)
+      .get('/api/v1/roles')
+      .set('authorization', authorization)
+      .expect(200);
+    const rolesBody = rolesResponse.body as {
+      success: boolean;
+      data: { builtIn: Array<{ key: string; fixed: boolean }> };
+    };
+    expect(rolesBody.success).toBe(true);
+    expect(rolesBody.data.builtIn.find((role) => role.key === 'company_admin')?.fixed).toBe(true);
+
+    const customRoleResponse = await request(app)
+      .post('/api/v1/roles/custom')
+      .set('authorization', authorization)
+      .send({
+        name: 'Quality Coach',
+        permissions: ['tests:read', 'employees:read', 'not:a-real-permission']
+      })
+      .expect(201);
+    const customRoleBody = customRoleResponse.body as {
+      success: boolean;
+      data: { key: string };
+    };
+    expect(customRoleBody.success).toBe(true);
+    expect(customRoleBody.data.key).toBe('quality_coach');
+
+    await request(app)
+      .patch('/api/v1/companies/branding')
+      .set('authorization', authorization)
+      .send({ logoUrl: '/uploads/logo.png', primaryColour: '#1d4ed8' })
+      .expect(200);
+    const companyResponse = await request(app)
+      .get('/api/v1/companies/current')
+      .set('authorization', authorization)
+      .expect(200);
+    const companyBody = companyResponse.body as {
+      success: boolean;
+      data: {
+        id: string;
+        name: string;
+        slug: string;
+        logoUrl: string;
+        primaryColour: string;
+      };
+    };
+    expect(companyBody.success).toBe(true);
+    expect(companyBody.data).toEqual({
+      id: first.company.id,
+      name: 'First Company',
+      slug: 'first-company',
+      logoUrl: '/uploads/logo.png',
+      primaryColour: '#1d4ed8'
+    });
+  }, 20_000);
 });

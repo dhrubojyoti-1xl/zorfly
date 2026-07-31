@@ -25,7 +25,8 @@ const authService = new AuthService({
 const app = createApp({
   environment,
   version: '0.1.0',
-  auth: { service: authService, tokens }
+  auth: { service: authService, tokens },
+  organization: { prisma }
 });
 
 const server = app.listen(environment.API_PORT, environment.API_HOST, () => {
