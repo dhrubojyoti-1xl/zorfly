@@ -14,6 +14,7 @@
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
+    "@zorfly/ai-core": "workspace:*",
     "@zorfly/config": "workspace:*",
     "@zorfly/contracts": "workspace:*",
     "@zorfly/database": "workspace:*",
