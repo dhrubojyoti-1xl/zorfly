@@ -37,6 +37,11 @@ import { createNotificationsRouter } from './modules/communications/notification
 import { createBadgeRouter } from './modules/engagement/badges.router.js';
 import { createLeaderboardRouter } from './modules/engagement/leaderboard.router.js';
 import { createCertificateRouter } from './modules/engagement/certificates.router.js';
+import { createDriveRouter } from './modules/recruitment/drives.router.js';
+import {
+  createCandidateAttemptRouter,
+  createPublicDriveRouter
+} from './modules/recruitment/candidate.router.js';
 
 export interface AppOptions {
   environment: ApiEnvironment;
@@ -142,6 +147,20 @@ export function createApp({ environment, version, auth, organization, ai }: AppO
         '/api/v1/certificates',
         createCertificateRouter(organization.prisma, auth.service, auth.tokens)
       );
+      app.use(
+        '/api/v1/drives',
+        createDriveRouter(
+          organization.prisma,
+          auth.service,
+          auth.tokens,
+          environment.SESSION_HASH_KEY
+        )
+      );
+      app.use(
+        '/api/v1/public/drives',
+        createPublicDriveRouter(organization.prisma, auth.tokens, environment.SESSION_HASH_KEY)
+      );
+      app.use('/api/v1/candidate', createCandidateAttemptRouter(organization.prisma, auth.tokens));
       if (ai) {
         app.use(
           '/api/v1/ai',

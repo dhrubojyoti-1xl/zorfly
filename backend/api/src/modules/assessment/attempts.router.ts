@@ -32,7 +32,7 @@ const answerSchema = z.object({
 const snapshotSchema = z.object({ image: z.string().min(20).max(400_000) });
 const graceMilliseconds = 60_000;
 
-const attemptInclude = {
+export const attemptInclude = {
   assignment: {
     include: {
       assessmentVersion: { include: { assessment: true } }
@@ -68,7 +68,7 @@ const attemptInclude = {
   }
 } satisfies Prisma.AssessmentAttemptInclude;
 
-type AttemptRecord = Prisma.AssessmentAttemptGetPayload<{ include: typeof attemptInclude }>;
+export type AttemptRecord = Prisma.AssessmentAttemptGetPayload<{ include: typeof attemptInclude }>;
 
 function principal(request: Request): SessionPrincipal & { tenantId: string } {
   if (!request.auth?.tenantId) throw new ApiError(401, 'Authentication is required.');
@@ -86,13 +86,13 @@ function context(request: Request): RequestContext {
   };
 }
 
-function object(value: Prisma.JsonValue | null | undefined): Record<string, unknown> {
+export function object(value: Prisma.JsonValue | null | undefined): Record<string, unknown> {
   return value && typeof value === 'object' && !Array.isArray(value)
     ? (value as Record<string, unknown>)
     : {};
 }
 
-function testConfiguration(value: Prisma.JsonValue | null) {
+export function testConfiguration(value: Prisma.JsonValue | null) {
   const config = object(value);
   return {
     mode: config.mode === 'random' ? 'random' : 'fixed',
@@ -123,7 +123,7 @@ function timeIsOver(attempt: Pick<AttemptRecord, 'expiresAt'>): boolean {
   return value !== null && Date.now() > value;
 }
 
-function answerMap(attempt: AttemptRecord): Record<string, unknown> {
+export function answerMap(attempt: AttemptRecord): Record<string, unknown> {
   return Object.fromEntries(
     attempt.questions
       .filter((question) => question.response)
@@ -131,7 +131,7 @@ function answerMap(attempt: AttemptRecord): Record<string, unknown> {
   );
 }
 
-function clientView(attempt: AttemptRecord) {
+export function clientView(attempt: AttemptRecord) {
   const version = attempt.assignment?.assessmentVersion;
   const config = testConfiguration(version?.configuration ?? null);
   return {
@@ -181,7 +181,7 @@ async function activeMembership(
   return membership;
 }
 
-interface PaperSource {
+export interface PaperSource {
   id: string;
   tenantId: string;
   assessmentVersionId: string;
@@ -202,7 +202,7 @@ interface PaperSource {
   };
 }
 
-async function createPaper(
+export async function createPaper(
   transaction: Prisma.TransactionClient,
   assignment: PaperSource
 ): Promise<string> {
