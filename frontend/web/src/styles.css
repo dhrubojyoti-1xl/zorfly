@@ -215,6 +215,9 @@ html[data-font-size='large'] {
 
 body {
   font-family:
+    'Manrope Variable',
+    'Avenir Next',
+    'Segoe UI Variable',
     'Inter',
     'Segoe UI',
     system-ui,
@@ -5240,6 +5243,7 @@ select.table-filter {
   }
   .app-header {
     justify-content: space-between;
+    padding: 0.7rem 0.85rem;
   }
   /* Sidebar is out of flow here, so the content card takes the full width */
   .app-content {
@@ -5285,8 +5289,12 @@ select.table-filter {
     grid-template-columns: repeat(2, 1fr);
   }
   .header-search {
+    width: 36px;
+    height: 36px;
+    flex: 0 0 36px;
+    justify-content: center;
     min-width: 0;
-    padding: 0.4rem;
+    padding: 0;
   }
   .header-search-label,
   .header-search-kbd {
@@ -5295,5 +5303,20 @@ select.table-filter {
   .dash-head-actions {
     width: 100%;
     justify-content: space-between;
+  }
+}
+
+@media (max-width: 520px) {
+  .app-header-left {
+    flex: 0 0 auto;
+  }
+  .app-header-right {
+    gap: 0.35rem;
+    flex-wrap: nowrap;
+  }
+  .header-search,
+  .accent-switcher,
+  .font-size-switcher {
+    display: none;
   }
 }

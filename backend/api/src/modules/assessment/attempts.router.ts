@@ -21,6 +21,7 @@ import type { RequestContext, SessionPrincipal } from '../auth/auth.types.js';
 import type { TokenService } from '../auth/tokens.js';
 import { scoreAttempt, type ScorableQuestion } from './scoring.js';
 import { sanitizeQuestionContent } from './tests.router.js';
+import { evaluateRewards, issueCertificateIfPassed } from '../engagement/rewards.service.js';
 
 const startSchema = z.object({ testId: z.uuid() });
 const answerSchema = z.object({
@@ -31,7 +32,7 @@ const answerSchema = z.object({
 const snapshotSchema = z.object({ image: z.string().min(20).max(400_000) });
 const graceMilliseconds = 60_000;
 
-const attemptInclude = {
+export const attemptInclude = {
   assignment: {
     include: {
       assessmentVersion: { include: { assessment: true } }
@@ -67,7 +68,7 @@ const attemptInclude = {
   }
 } satisfies Prisma.AssessmentAttemptInclude;
 
-type AttemptRecord = Prisma.AssessmentAttemptGetPayload<{ include: typeof attemptInclude }>;
+export type AttemptRecord = Prisma.AssessmentAttemptGetPayload<{ include: typeof attemptInclude }>;
 
 function principal(request: Request): SessionPrincipal & { tenantId: string } {
   if (!request.auth?.tenantId) throw new ApiError(401, 'Authentication is required.');
@@ -85,13 +86,13 @@ function context(request: Request): RequestContext {
   };
 }
 
-function object(value: Prisma.JsonValue | null | undefined): Record<string, unknown> {
+export function object(value: Prisma.JsonValue | null | undefined): Record<string, unknown> {
   return value && typeof value === 'object' && !Array.isArray(value)
     ? (value as Record<string, unknown>)
     : {};
 }
 
-function testConfiguration(value: Prisma.JsonValue | null) {
+export function testConfiguration(value: Prisma.JsonValue | null) {
   const config = object(value);
   return {
     mode: config.mode === 'random' ? 'random' : 'fixed',
@@ -122,7 +123,7 @@ function timeIsOver(attempt: Pick<AttemptRecord, 'expiresAt'>): boolean {
   return value !== null && Date.now() > value;
 }
 
-function answerMap(attempt: AttemptRecord): Record<string, unknown> {
+export function answerMap(attempt: AttemptRecord): Record<string, unknown> {
   return Object.fromEntries(
     attempt.questions
       .filter((question) => question.response)
@@ -130,7 +131,7 @@ function answerMap(attempt: AttemptRecord): Record<string, unknown> {
   );
 }
 
-function clientView(attempt: AttemptRecord) {
+export function clientView(attempt: AttemptRecord) {
   const version = attempt.assignment?.assessmentVersion;
   const config = testConfiguration(version?.configuration ?? null);
   return {
@@ -180,7 +181,7 @@ async function activeMembership(
   return membership;
 }
 
-interface PaperSource {
+export interface PaperSource {
   id: string;
   tenantId: string;
   assessmentVersionId: string;
@@ -201,7 +202,7 @@ interface PaperSource {
   };
 }
 
-async function createPaper(
+export async function createPaper(
   transaction: Prisma.TransactionClient,
   assignment: PaperSource
 ): Promise<string> {
@@ -742,12 +743,42 @@ export function createAttemptRouter(
         });
       }
     });
+    await evaluateRewards(prisma, service, {
+      tenantId: auth.tenantId,
+      membershipId: membership.id,
+      attemptPublicId: attempt.publicId,
+      mode: attempt.mode,
+      percentage: scores.percentage,
+      passed,
+      detectionRate: scores.detectionRate,
+      userEmail: membership.user.emailCanonical,
+      userName: membership.user.displayName ?? null
+    }).catch((error: unknown) => {
+      request.log.error({ error }, 'Reward evaluation failed');
+    });
+    await issueCertificateIfPassed(prisma, {
+      tenantId: auth.tenantId,
+      membershipId: membership.id,
+      attemptId: attempt.id,
+      assessmentId: version.assessment.id,
+      assessmentTitle: version.assessment.title,
+      employeeName: membership.user.displayName ?? membership.user.emailCanonical,
+      percentage: scores.percentage,
+      passed,
+      mode: attempt.mode
+    }).catch((error: unknown) => {
+      request.log.error({ error }, 'Certificate issuance failed');
+    });
     service.sendNotification({
       to: membership.user.emailCanonical,
       subject: `Result published: ${version.assessment.title}`,
       html: `<p>You scored ${String(scores.obtained)}/${String(scores.max)} (${String(scores.percentage)}%) — ${passed ? 'passed' : 'not passed'}.</p>`,
       type: 'result_published',
-      tenantId: auth.tenantId
+      tenantId: auth.tenantId,
+      membershipId: membership.id,
+      title: `Result published: ${version.assessment.title}`,
+      body: `You scored ${String(scores.obtained)}/${String(scores.max)} (${String(scores.percentage)}%) — ${passed ? 'passed' : 'not passed'}.`,
+      link: `/app/results/${attempt.publicId}`
     });
     await service.recordAudit(
       {

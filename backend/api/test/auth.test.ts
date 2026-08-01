@@ -64,6 +64,7 @@ function createRepository(overrides: Partial<AuthRepository> = {}): AuthReposito
     revokeSession: vi.fn(() => Promise.resolve()),
     resolvePermissions: vi.fn(() => Promise.resolve(['tests:read'])),
     audit: vi.fn(() => Promise.resolve()),
+    createNotification: vi.fn(() => Promise.resolve()),
     ...overrides
   };
 }

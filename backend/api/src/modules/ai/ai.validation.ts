@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { difficultyKeys, questionSchema } from '../assessment/question.validation.js';
 import { aiQuestionTypes } from './question-generation.js';
+import { studyContentTypeKeys } from './study-generation.js';
 
 const uuid = z.uuid('Invalid value.');
 const topic = z
@@ -25,7 +26,38 @@ export const generateQuestionsSchema = z.object({
 });
 export type GenerateQuestionsInput = z.output<typeof generateQuestionsSchema>;
 
+export const generateTestSchema = z.object({
+  topic,
+  types: aiTypes,
+  questionCount: z.number().int().min(1).max(30).default(10),
+  categoryId: uuid,
+  subCategoryId: uuid.optional().nullable(),
+  difficulty,
+  marks: z.number().min(0.5).max(1000).default(1),
+  title: z.string().trim().max(200).optional(),
+  timeLimitMin: z.number().int().min(0).max(600).optional(),
+  passingPercentage: z.number().min(0).max(100).optional(),
+  instructions
+});
+export type GenerateTestInput = z.output<typeof generateTestSchema>;
+
+export const generateStudySchema = z.object({
+  topic,
+  contentType: z.enum(studyContentTypeKeys).default('study_guide'),
+  categoryId: uuid.optional().nullable(),
+  subCategoryId: uuid.optional().nullable(),
+  difficulty: z.enum(difficultyKeys).optional().nullable(),
+  questionCount: z.number().int().min(0).max(20).optional(),
+  instructions
+});
+export type GenerateStudyInput = z.output<typeof generateStudySchema>;
+
+const questionWithHistory = z.intersection(
+  z.object({ historyId: z.string().trim().min(1).max(60).optional() }),
+  questionSchema
+);
+
 export const saveQuestionsSchema = z.object({
-  questions: z.array(questionSchema).min(1, 'No questions to save.').max(50)
+  questions: z.array(questionWithHistory).min(1, 'No questions to save.').max(50)
 });
 export type SaveQuestionsInput = z.output<typeof saveQuestionsSchema>;

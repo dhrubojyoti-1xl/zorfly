@@ -359,7 +359,11 @@ export function createEmployeeRouter(
         subject: `You have been added to ${company?.name ?? 'Zorfly'}`,
         html: `<p>Hello ${input.fullName}, you have been added as ${input.role.replaceAll('_', ' ')}.</p>${temporaryPassword ? `<p>Your temporary password is <strong>${temporaryPassword}</strong>.</p>` : ''}`,
         type: 'employee_added',
-        tenantId: auth.tenantId
+        tenantId: auth.tenantId,
+        membershipId: created.membership.id,
+        title: `Welcome to ${company?.name ?? 'Zorfly'}`,
+        body: `You have been added as ${input.role.replaceAll('_', ' ')}.`,
+        link: '/app/dashboard'
       });
       response.status(201).json({
         success: true,

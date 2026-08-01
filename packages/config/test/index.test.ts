@@ -14,6 +14,10 @@ describe('environment parsing', () => {
     expect(() => parseWorkerEnvironment({ REDIS_URL: 'not-a-url' })).toThrow();
   });
 
+  it('accepts the platform-provided web-service port', () => {
+    expect(parseApiEnvironment({ PORT: '10000' }).PORT).toBe(10000);
+  });
+
   it('rejects local session keys in production', () => {
     expect(() => parseApiEnvironment({ NODE_ENV: 'production' })).toThrow(
       'Production session keys must be explicitly configured.'

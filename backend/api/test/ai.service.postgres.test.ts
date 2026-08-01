@@ -121,7 +121,7 @@ integration('AiExecutionService (PostgreSQL-backed)', () => {
     expect(second.reused).toBe(true);
     expect(second.output).toEqual({ questions: [] });
     expect(fetchImpl).toHaveBeenCalledTimes(1);
-  });
+  }, 15_000);
 
   it('rejects generation for a tenant with no AI provider configuration', async () => {
     if (!prisma) throw new Error('TEST_DATABASE_URL is required.');

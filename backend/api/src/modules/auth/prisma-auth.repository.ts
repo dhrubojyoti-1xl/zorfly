@@ -1,8 +1,10 @@
-import { createHash, createHmac, randomBytes } from 'node:crypto';
+import { createHash, createHmac, randomBytes, randomUUID } from 'node:crypto';
 import {
   AuditActorType,
   AuditOutcome,
+  DeliveryStatus,
   MembershipStatus,
+  NotificationChannel,
   RecordStatus,
   SubscriptionStatus,
   TenantStatus,
@@ -21,12 +23,18 @@ import type {
   AuthRepository,
   AuthUser,
   CompanyMembership,
+  NotificationInput,
   PublicCompany,
   PublicUser,
   RegistrationCommand,
   RequestContext,
   SessionPrincipal
 } from './auth.types.js';
+
+const TENANT_PROVISIONING_TRANSACTION_OPTIONS: { timeout: number; maxWait: number } = {
+  timeout: 20_000,
+  maxWait: 10_000
+};
 
 const roleDefinitions: ReadonlyArray<{ key: TenantRoleKey; name: string; isSystem: boolean }> = [
   { key: roles.companyAdmin, name: 'Company Admin', isSystem: true },
@@ -175,6 +183,9 @@ export class PrismaAuthRepository implements AuthRepository {
     const tenantCode = `${codeFromName(command.companyName, 'COMPANY').slice(0, 28)}_${randomBytes(4).toString('hex').toUpperCase()}`;
     const now = new Date();
 
+    // Provisions a full tenant (user, roles, permissions, difficulty levels,
+    // subscription) in one write — the default 5s interactive-transaction
+    // timeout can be tight under load, so this uses a longer one.
     return this.prisma.$transaction(async (transaction) => {
       const user = command.existingUserId
         ? await transaction.user.findUniqueOrThrow({ where: { id: command.existingUserId } })
@@ -207,15 +218,23 @@ export class PrismaAuthRepository implements AuthRepository {
         }
       });
 
-      const permissions = await Promise.all(
-        permissionCatalog.map((key) =>
-          transaction.permission.upsert({
-            where: { key },
-            create: { key, description: key, riskLevel: key.includes('delete') ? 3 : 1 },
-            update: {}
-          })
-        )
-      );
+      // `Permission.key` is a global (not tenant-scoped) catalog re-synced on
+      // every registration. A per-key upsert races when two tenants register
+      // at the same moment — and on Postgres, one failed statement poisons
+      // the rest of this transaction, so a caught unique-violation can't be
+      // recovered from with more queries here. `createMany` + `skipDuplicates`
+      // is a single atomic, concurrency-safe statement instead.
+      await transaction.permission.createMany({
+        data: permissionCatalog.map((key) => ({
+          key,
+          description: key,
+          riskLevel: key.includes('delete') ? 3 : 1
+        })),
+        skipDuplicates: true
+      });
+      const permissions = await transaction.permission.findMany({
+        where: { key: { in: [...permissionCatalog] } }
+      });
       const permissionIdByKey = new Map(
         permissions.map((permission) => [permission.key, permission.id])
       );
@@ -317,7 +336,7 @@ export class PrismaAuthRepository implements AuthRepository {
       const result = mappedMembership(membership);
       if (!result) throw new Error('Company Admin membership provisioning failed.');
       return result;
-    });
+    }, TENANT_PROVISIONING_TRANSACTION_OPTIONS);
   }
 
   public async listActiveMemberships(userId: string): Promise<CompanyMembership[]> {
@@ -593,6 +612,27 @@ export class PrismaAuthRepository implements AuthRepository {
         previousEventHash: previous?.eventHash ?? null,
         eventHash,
         occurredAt
+      }
+    });
+  }
+
+  public async createNotification(input: NotificationInput): Promise<void> {
+    await this.prisma.notificationDelivery.create({
+      data: {
+        tenantId: input.tenantId,
+        recipientMembershipId: input.membershipId,
+        channel: NotificationChannel.IN_APP,
+        destinationHash: createHash('sha256').update(input.membershipId).digest('hex'),
+        deduplicationKey: randomUUID(),
+        payload: {
+          type: input.type,
+          title: input.title,
+          body: input.body ?? '',
+          link: input.link ?? ''
+        },
+        status: DeliveryStatus.DELIVERED,
+        sentAt: new Date(),
+        deliveredAt: new Date()
       }
     });
   }

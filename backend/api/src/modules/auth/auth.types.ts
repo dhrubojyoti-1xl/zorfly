@@ -101,6 +101,16 @@ export interface AuthRepository {
     },
     context: RequestContext
   ): Promise<void>;
+  createNotification(input: NotificationInput): Promise<void>;
+}
+
+export interface NotificationInput {
+  tenantId: string;
+  membershipId: string;
+  type: string;
+  title: string;
+  body?: string;
+  link?: string;
 }
 
 export interface MailMessage {
@@ -109,6 +119,10 @@ export interface MailMessage {
   html: string;
   type: string;
   tenantId?: string;
+  membershipId?: string;
+  title?: string;
+  body?: string;
+  link?: string;
 }
 
 export interface AuthMailer {

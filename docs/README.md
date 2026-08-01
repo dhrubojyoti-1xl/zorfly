@@ -19,8 +19,9 @@
 15. [AI and Agent Architecture](AI_AND_AGENT_ARCHITECTURE.md)
 16. [Media and SVG Architecture](MEDIA_AND_SVG_ARCHITECTURE.md)
 17. [Operations and Resilience](OPERATIONS_AND_RESILIENCE.md)
-18. [Coding Standards](CODING_STANDARDS.md)
-19. [Implementation Plan](IMPLEMENTATION_PLAN.md)
+18. [Deployment Runbook](DEPLOYMENT_RUNBOOK.md)
+19. [Coding Standards](CODING_STANDARDS.md)
+20. [Implementation Plan](IMPLEMENTATION_PLAN.md)
 
 ## Controlled documentation
 

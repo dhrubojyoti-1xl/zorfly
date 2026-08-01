@@ -253,6 +253,10 @@ enum LearningContentType {
   BRAND_GUIDE
   CHECKLIST
   EXTERNAL_LINK
+  STUDY_GUIDE
+  SUMMARY
+  FLASHCARDS
+  PRACTICE_QUIZ
 
   @@schema("learning")
 }
@@ -497,6 +501,13 @@ enum SubscriptionStatus {
   @@schema("platform")
 }
 
+enum CouponDiscountType {
+  PERCENT
+  FLAT
+
+  @@schema("platform")
+}
+
 enum InvoiceStatus {
   DRAFT
   OPEN
@@ -669,6 +680,22 @@ model PlatformUserRole {
 
   @@id([userId, roleId])
   @@index([expiresAt])
+  @@schema("platform")
+}
+
+model Coupon {
+  id            String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  code          String             @unique @db.VarChar(30)
+  discountType  CouponDiscountType
+  discountValue Decimal            @db.Decimal(10, 2)
+  maxUses       Int?
+  usedCount     Int                @default(0)
+  active        Boolean            @default(true)
+  expiresAt     DateTime?          @db.Timestamptz(6)
+  createdAt     DateTime           @default(now()) @db.Timestamptz(6)
+  updatedAt     DateTime           @updatedAt @db.Timestamptz(6)
+
+  @@index([active, expiresAt])
   @@schema("platform")
 }
 
@@ -1149,23 +1176,24 @@ model AssessmentCategory {
 }
 
 model DifficultyLevel {
-  id          String                 @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  tenantId    String                 @db.Uuid
-  code        String                 @db.VarChar(80)
-  name        String                 @db.VarChar(120)
-  rank        Int                    @db.SmallInt
-  description String?                @db.VarChar(500)
-  status      RecordStatus           @default(ACTIVE)
-  createdAt   DateTime               @default(now()) @db.Timestamptz(6)
-  updatedAt   DateTime               @updatedAt @db.Timestamptz(6)
-  createdById String?                @db.Uuid
-  updatedById String?                @db.Uuid
-  deletedAt   DateTime?              @db.Timestamptz(6)
-  deletedById String?                @db.Uuid
-  rowVersion  Int                    @default(1)
-  tenant      Tenant                 @relation(fields: [tenantId], references: [id], onDelete: Restrict)
-  questions   Question[]
-  assessments AssessmentDefinition[]
+  id                String                 @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId          String                 @db.Uuid
+  code              String                 @db.VarChar(80)
+  name              String                 @db.VarChar(120)
+  rank              Int                    @db.SmallInt
+  description       String?                @db.VarChar(500)
+  status            RecordStatus           @default(ACTIVE)
+  createdAt         DateTime               @default(now()) @db.Timestamptz(6)
+  updatedAt         DateTime               @updatedAt @db.Timestamptz(6)
+  createdById       String?                @db.Uuid
+  updatedById       String?                @db.Uuid
+  deletedAt         DateTime?              @db.Timestamptz(6)
+  deletedById       String?                @db.Uuid
+  rowVersion        Int                    @default(1)
+  tenant            Tenant                 @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  questions         Question[]
+  assessments       AssessmentDefinition[]
+  learningMaterials LearningMaterial[]
 
   @@unique([tenantId, code])
   @@unique([tenantId, rank])
@@ -1451,28 +1479,31 @@ model QuestionTag {
 }
 
 model LearningMaterial {
-  id               String                    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  tenantId         String                    @db.Uuid
-  categoryId       String?                   @db.Uuid
-  code             String                    @db.VarChar(100)
-  title            String                    @db.VarChar(255)
-  contentType      LearningContentType
-  status           RecordStatus              @default(DRAFT)
-  currentVersionId String?                   @unique @db.Uuid
-  createdAt        DateTime                  @default(now()) @db.Timestamptz(6)
-  updatedAt        DateTime                  @updatedAt @db.Timestamptz(6)
-  createdById      String?                   @db.Uuid
-  updatedById      String?                   @db.Uuid
-  deletedAt        DateTime?                 @db.Timestamptz(6)
-  deletedById      String?                   @db.Uuid
-  rowVersion       Int                       @default(1)
-  tenant           Tenant                    @relation(fields: [tenantId], references: [id], onDelete: Restrict)
-  category         AssessmentCategory?       @relation(fields: [categoryId], references: [id], onDelete: Restrict)
-  currentVersion   LearningMaterialVersion?  @relation("CurrentMaterialVersion", fields: [currentVersionId], references: [id], onDelete: Restrict)
-  versions         LearningMaterialVersion[] @relation("MaterialVersions")
+  id                String                    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId          String                    @db.Uuid
+  categoryId        String?                   @db.Uuid
+  difficultyLevelId String?                   @db.Uuid
+  code              String                    @db.VarChar(100)
+  title             String                    @db.VarChar(255)
+  contentType       LearningContentType
+  status            RecordStatus              @default(DRAFT)
+  currentVersionId  String?                   @unique @db.Uuid
+  createdAt         DateTime                  @default(now()) @db.Timestamptz(6)
+  updatedAt         DateTime                  @updatedAt @db.Timestamptz(6)
+  createdById       String?                   @db.Uuid
+  updatedById       String?                   @db.Uuid
+  deletedAt         DateTime?                 @db.Timestamptz(6)
+  deletedById       String?                   @db.Uuid
+  rowVersion        Int                       @default(1)
+  tenant            Tenant                    @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  category          AssessmentCategory?       @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  difficultyLevel   DifficultyLevel?          @relation(fields: [difficultyLevelId], references: [id], onDelete: Restrict)
+  currentVersion    LearningMaterialVersion?  @relation("CurrentMaterialVersion", fields: [currentVersionId], references: [id], onDelete: Restrict)
+  versions          LearningMaterialVersion[] @relation("MaterialVersions")
 
   @@unique([tenantId, code])
   @@index([tenantId, categoryId, status, deletedAt])
+  @@index([tenantId, difficultyLevelId])
   @@schema("learning")
 }
 
@@ -1542,6 +1573,7 @@ model AssessmentDefinition {
   currentVersion    AssessmentVersion?   @relation("CurrentAssessmentVersion", fields: [currentVersionId], references: [id], onDelete: Restrict)
   versions          AssessmentVersion[]  @relation("AssessmentVersions")
   schedules         AssessmentSchedule[]
+  certificates      Certificate[]
 
   @@unique([tenantId, code])
   @@index([tenantId, status, categoryId, deletedAt])
@@ -2231,6 +2263,7 @@ model Certificate {
   membershipId             String                  @db.Uuid
   learningPathAssignmentId String?                 @db.Uuid
   assessmentAttemptId      BigInt?
+  assessmentId             String?                 @db.Uuid
   verificationCode         String                  @unique @db.VarChar(80)
   status                   CertificateStatus       @default(ISSUED)
   issuedAt                 DateTime                @db.Timestamptz(6)
@@ -2243,7 +2276,9 @@ model Certificate {
   membership               TenantMembership        @relation(fields: [membershipId], references: [id], onDelete: Restrict)
   learningPathAssignment   LearningPathAssignment? @relation(fields: [learningPathAssignmentId], references: [id], onDelete: Restrict)
   assessmentAttempt        AssessmentAttempt?      @relation(fields: [assessmentAttemptId], references: [id], onDelete: Restrict)
+  assessment               AssessmentDefinition?   @relation(fields: [assessmentId], references: [id], onDelete: Restrict)
 
+  @@unique([tenantId, membershipId, assessmentId])
   @@index([tenantId, membershipId, status, issuedAt])
   @@index([tenantId, expiresAt])
   @@schema("learning")
@@ -2510,6 +2545,7 @@ model BadgeAward {
   badge        BadgeDefinition  @relation(fields: [badgeId], references: [id], onDelete: Restrict)
   membership   TenantMembership @relation(fields: [membershipId], references: [id], onDelete: Restrict)
 
+  @@unique([tenantId, badgeId, membershipId])
   @@index([tenantId, membershipId, awardedAt])
   @@index([tenantId, badgeId, revokedAt])
   @@schema("engagement")
@@ -2642,6 +2678,7 @@ model NotificationDelivery {
   nextAttemptAt         DateTime?             @db.Timestamptz(6)
   sentAt                DateTime?             @db.Timestamptz(6)
   deliveredAt           DateTime?             @db.Timestamptz(6)
+  readAt                DateTime?             @db.Timestamptz(6)
   failureCode           String?               @db.VarChar(160)
   providerMessageId     String?               @db.VarChar(255)
   createdAt             DateTime              @default(now()) @db.Timestamptz(6)
@@ -2652,6 +2689,7 @@ model NotificationDelivery {
   @@unique([tenantId, deduplicationKey])
   @@index([tenantId, status, nextAttemptAt])
   @@index([tenantId, recipientMembershipId, createdAt])
+  @@index([tenantId, recipientMembershipId, readAt])
   @@index([createdAt], type: Brin)
   @@schema("communications")
 }
@@ -3100,8 +3138,13 @@ model ImageCache {
 
 model QuestionGenerationHistory {
   id                         BigInt            @id @default(autoincrement())
+  publicId                   String            @unique @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   tenantId                   String            @db.Uuid
   executionId                BigInt
+  /**
+   * Ordinal position of this draft within its execution's raw output; stable across replays/repairs.
+   */
+  draftIndex                 Int
   sourceQuestionId           String?           @db.Uuid
   generatedQuestionVersionId String?           @db.Uuid
   request                    Json              @db.JsonB
@@ -3115,6 +3158,7 @@ model QuestionGenerationHistory {
   sourceQuestion             Question?         @relation(fields: [sourceQuestionId], references: [id], onDelete: Restrict)
   generatedQuestionVersion   QuestionVersion?  @relation("GeneratedQuestionVersion", fields: [generatedQuestionVersionId], references: [id], onDelete: Restrict)
 
+  @@unique([executionId, draftIndex])
   @@index([tenantId, createdAt])
   @@index([tenantId, generatedQuestionVersionId])
   @@schema("ai")

@@ -26,8 +26,24 @@ import { createCategoryRouter } from './modules/assessment/categories.router.js'
 import { createQuestionRouter } from './modules/assessment/questions.router.js';
 import { createTestRouter } from './modules/assessment/tests.router.js';
 import { createAttemptRouter } from './modules/assessment/attempts.router.js';
+import { createScheduleRouter } from './modules/assessment/schedules.router.js';
+import { createReviewRouter } from './modules/assessment/reviews.router.js';
 import { createAiRouter } from './modules/ai/ai.router.js';
 import type { AiExecutionService } from './modules/ai/ai.service.js';
+import { createLearningRouter } from './modules/learning/learning.router.js';
+import { createStudyRouter } from './modules/learning/study.router.js';
+import { createPathsRouter } from './modules/learning/paths.router.js';
+import { createNotificationsRouter } from './modules/communications/notifications.router.js';
+import { createBadgeRouter } from './modules/engagement/badges.router.js';
+import { createLeaderboardRouter } from './modules/engagement/leaderboard.router.js';
+import { createCertificateRouter } from './modules/engagement/certificates.router.js';
+import { createDriveRouter } from './modules/recruitment/drives.router.js';
+import {
+  createCandidateAttemptRouter,
+  createPublicDriveRouter
+} from './modules/recruitment/candidate.router.js';
+import { createReportRouter } from './modules/reports/reports.router.js';
+import { createBillingRouter } from './modules/billing/billing.router.js';
 
 export interface AppOptions {
   environment: ApiEnvironment;
@@ -108,6 +124,57 @@ export function createApp({ environment, version, auth, organization, ai }: AppO
       app.use(
         '/api/v1/attempts',
         createAttemptRouter(organization.prisma, auth.service, auth.tokens)
+      );
+      app.use(
+        '/api/v1/learning',
+        createLearningRouter(organization.prisma, auth.service, auth.tokens)
+      );
+      app.use('/api/v1/study', createStudyRouter(organization.prisma, auth.service, auth.tokens));
+      app.use('/api/v1/paths', createPathsRouter(organization.prisma, auth.service, auth.tokens));
+      app.use(
+        '/api/v1/schedules',
+        createScheduleRouter(organization.prisma, auth.service, auth.tokens)
+      );
+      app.use(
+        '/api/v1/reviews',
+        createReviewRouter(organization.prisma, auth.service, auth.tokens)
+      );
+      app.use('/api/v1/notifications', createNotificationsRouter(organization.prisma, auth.tokens));
+      app.use('/api/v1/badges', createBadgeRouter(organization.prisma, auth.service, auth.tokens));
+      app.use(
+        '/api/v1/leaderboard',
+        createLeaderboardRouter(organization.prisma, auth.service, auth.tokens)
+      );
+      app.use(
+        '/api/v1/certificates',
+        createCertificateRouter(organization.prisma, auth.service, auth.tokens)
+      );
+      app.use(
+        '/api/v1/drives',
+        createDriveRouter(
+          organization.prisma,
+          auth.service,
+          auth.tokens,
+          environment.SESSION_HASH_KEY
+        )
+      );
+      app.use(
+        '/api/v1/public/drives',
+        createPublicDriveRouter(organization.prisma, auth.tokens, environment.SESSION_HASH_KEY)
+      );
+      app.use('/api/v1/candidate', createCandidateAttemptRouter(organization.prisma, auth.tokens));
+      app.use(
+        '/api/v1/reports',
+        createReportRouter(
+          organization.prisma,
+          auth.service,
+          auth.tokens,
+          environment.SESSION_HASH_KEY
+        )
+      );
+      app.use(
+        '/api/v1/billing',
+        createBillingRouter(organization.prisma, auth.service, auth.tokens)
       );
       if (ai) {
         app.use(

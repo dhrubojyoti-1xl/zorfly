@@ -141,6 +141,7 @@ export class AiExecutionService {
     if (created.reused) {
       if (created.status === AIExecutionStatus.SUCCEEDED) {
         return {
+          executionId: created.id,
           executionPublicId: created.publicId,
           output: created.outputSnapshot as TOutput,
           providerKey: eligible[0]!.providerKey,
@@ -210,6 +211,7 @@ export class AiExecutionService {
       await this.recordCost(input.tenantId, created.id, usedConfig, response.usage);
 
       return {
+        executionId: created.id,
         executionPublicId: created.publicId,
         output: response.output,
         providerKey: response.providerKey,

@@ -7,6 +7,7 @@ import {
   type Prisma,
   type ZorflyPrismaClient
 } from '@zorfly/database';
+import { ApiError } from '../../platform/api-error.js';
 
 export interface ProviderCatalogEntry {
   providerKey: string;
@@ -130,6 +131,22 @@ export async function ensureModelConfiguration(
     where: { tenantId_key: { tenantId: input.tenantId, key: input.key } },
     create: { tenantId: input.tenantId, key: input.key, ...data },
     update: data
+  });
+}
+
+/** Enables the platform Claude key for a tenant without ever persisting the key itself. */
+export async function ensureDefaultClaudeConfiguration(
+  prisma: ZorflyPrismaClient,
+  tenantId: string
+): Promise<void> {
+  await ensureProviderCatalog(prisma);
+  await ensureTenantProviderConfiguration(prisma, tenantId, 'claude', 'ANTHROPIC_API_KEY');
+  await ensureModelConfiguration(prisma, {
+    tenantId,
+    key: 'question-generation.default',
+    purpose: 'QUESTION_GENERATION',
+    providerKey: 'claude',
+    modelKey: 'claude-sonnet-5'
   });
 }
 
@@ -482,6 +499,110 @@ export async function recordCostEntry(
       amount: (input.quantity / 1_000_000) * input.unitPrice,
       currency: input.currency,
       pricingVersion: input.pricingVersion
+    }
+  });
+}
+
+export interface GenerationDraftRecord {
+  /** Stable 0-based ordinal within the execution's raw output; the upsert key alongside executionId. */
+  draftIndex: number;
+  request: Prisma.InputJsonValue;
+  validationResult: Prisma.InputJsonValue;
+}
+
+export interface GenerationHistoryRef {
+  /** Opaque public identifier (QuestionGenerationHistory.publicId) — never the internal bigint id. */
+  historyId: string;
+}
+
+const historyIdPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/**
+ * Ensures one QuestionGenerationHistory row exists per raw AI draft item, keyed
+ * by (executionId, draftIndex). Idempotent and crash-safe: a row already
+ * recorded is left untouched (preserving any human decision already made on
+ * it); a row missing — because this is the first call, or because a prior
+ * call was interrupted after the AI execution succeeded but before history
+ * was recorded — is created. Never returns fewer refs than drafts supplied.
+ */
+export async function upsertGenerationDrafts(
+  prisma: ZorflyPrismaClient,
+  tenantId: string,
+  executionId: bigint,
+  drafts: readonly GenerationDraftRecord[]
+): Promise<GenerationHistoryRef[]> {
+  if (drafts.length === 0) return [];
+  return prisma.$transaction(async (transaction) => {
+    const refs: GenerationHistoryRef[] = [];
+    for (const draft of drafts) {
+      const existing = await transaction.questionGenerationHistory.findUnique({
+        where: { executionId_draftIndex: { executionId, draftIndex: draft.draftIndex } },
+        select: { publicId: true }
+      });
+      if (existing) {
+        refs.push({ historyId: existing.publicId });
+        continue;
+      }
+      const created = await transaction.questionGenerationHistory.create({
+        data: {
+          tenantId,
+          executionId,
+          draftIndex: draft.draftIndex,
+          request: draft.request,
+          validationResult: draft.validationResult
+        },
+        select: { publicId: true }
+      });
+      refs.push({ historyId: created.publicId });
+    }
+    return refs;
+  });
+}
+
+export interface LinkGenerationDecisionInput {
+  tenantId: string;
+  historyId: string;
+  generatedQuestionVersionId: string;
+  decidedById: string;
+}
+
+/**
+ * Tenant-scoped: links a saved question version back to the AI draft that
+ * produced it, inside the caller's question-creation transaction so the
+ * provenance link and the saved question commit or roll back together.
+ *
+ * Throws ApiError(422) for a malformed, unknown, or cross-tenant history id,
+ * and ApiError(409) if that draft was already redeemed by an earlier save —
+ * a history id is single-use, and a duplicate redemption is rejected rather
+ * than silently re-linked or transparently returning the earlier question.
+ */
+export async function linkGenerationDecision(
+  transaction: Prisma.TransactionClient,
+  input: LinkGenerationDecisionInput
+): Promise<void> {
+  if (!historyIdPattern.test(input.historyId)) {
+    throw new ApiError(422, 'The AI draft reference is invalid.', { historyId: 'Invalid value.' });
+  }
+  const history = await transaction.questionGenerationHistory.findUnique({
+    where: { publicId: input.historyId }
+  });
+  if (!history || history.tenantId !== input.tenantId) {
+    throw new ApiError(422, 'The AI draft reference was not found.', {
+      historyId: 'Invalid value.'
+    });
+  }
+  if (history.humanDecision !== null) {
+    throw new ApiError(409, 'This AI-generated draft has already been saved.', {
+      historyId: 'Already saved.'
+    });
+  }
+  await transaction.questionGenerationHistory.update({
+    where: { id: history.id },
+    data: {
+      humanDecision: 'accepted',
+      generatedQuestionVersionId: input.generatedQuestionVersionId,
+      decidedById: input.decidedById,
+      decidedAt: new Date()
     }
   });
 }
