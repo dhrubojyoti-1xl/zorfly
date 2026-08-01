@@ -1194,7 +1194,11 @@ export function createTestRouter(
             subject: `New test assigned: ${record.title}`,
             html: `<p>Hello ${membership.user.displayName ?? 'there'}, the test <strong>${record.title}</strong> has been assigned to you${dueAt ? ` and is due by ${dueAt.toLocaleDateString('en-GB')}` : ''}.</p>`,
             type: 'test_assigned',
-            tenantId: auth.tenantId
+            tenantId: auth.tenantId,
+            membershipId: membership.id,
+            title: `New test assigned: ${record.title}`,
+            body: `The test "${record.title}" has been assigned to you${dueAt ? ` and is due by ${dueAt.toLocaleDateString('en-GB')}` : ''}.`,
+            link: '/app/my-tests'
           });
         }
       }
@@ -1352,7 +1356,11 @@ export function createTestRouter(
           subject: `Assignment revoked: ${campaign.name}`,
           html: `<p>Hello ${assignment.membership.user.displayName ?? 'there'}, this test assignment has been withdrawn.${input.reason ? ` Reason: ${input.reason}` : ''}</p>`,
           type: 'test_revoked',
-          tenantId: auth.tenantId
+          tenantId: auth.tenantId,
+          membershipId: assignment.membership.id,
+          title: `Assignment revoked: ${campaign.name}`,
+          body: `This test assignment has been withdrawn.${input.reason ? ` Reason: ${input.reason}` : ''}`,
+          link: '/app/my-tests'
         });
       }
       await service.recordAudit(

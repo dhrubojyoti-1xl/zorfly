@@ -2650,6 +2650,7 @@ model NotificationDelivery {
   nextAttemptAt         DateTime?             @db.Timestamptz(6)
   sentAt                DateTime?             @db.Timestamptz(6)
   deliveredAt           DateTime?             @db.Timestamptz(6)
+  readAt                DateTime?             @db.Timestamptz(6)
   failureCode           String?               @db.VarChar(160)
   providerMessageId     String?               @db.VarChar(255)
   createdAt             DateTime              @default(now()) @db.Timestamptz(6)
@@ -2660,6 +2661,7 @@ model NotificationDelivery {
   @@unique([tenantId, deduplicationKey])
   @@index([tenantId, status, nextAttemptAt])
   @@index([tenantId, recipientMembershipId, createdAt])
+  @@index([tenantId, recipientMembershipId, readAt])
   @@index([createdAt], type: Brin)
   @@schema("communications")
 }

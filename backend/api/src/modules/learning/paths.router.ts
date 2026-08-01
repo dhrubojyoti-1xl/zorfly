@@ -511,7 +511,11 @@ export function createPathsRouter(
           subject: `New learning path assigned: ${path.title}`,
           html: `<p>Hello ${membership.user.displayName ?? 'there'}, the learning path <strong>${path.title}</strong> (${String(stepCount)} steps) has been assigned to you. Open the Learning page to begin.</p>`,
           type: 'learning_path_assigned',
-          tenantId: auth.tenantId
+          tenantId: auth.tenantId,
+          membershipId: membership.id,
+          title: `New learning path assigned: ${path.title}`,
+          body: `The learning path "${path.title}" (${String(stepCount)} steps) has been assigned to you.`,
+          link: '/app/learning'
         });
       }
       await service.recordAudit(

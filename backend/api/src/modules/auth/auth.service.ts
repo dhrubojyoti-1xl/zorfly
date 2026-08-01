@@ -265,6 +265,18 @@ export class AuthService {
 
   public sendNotification(message: Parameters<AuthMailer['send']>[0]): void {
     this.sendMail(message);
+    if (message.membershipId && message.tenantId) {
+      this.options.repository
+        .createNotification({
+          tenantId: message.tenantId,
+          membershipId: message.membershipId,
+          type: message.type,
+          title: message.title ?? message.subject,
+          body: message.body ?? '',
+          link: message.link ?? ''
+        })
+        .catch(() => {});
+    }
   }
 
   public async updateProfile(userId: string, input: UpdateProfileInput, context: RequestContext) {

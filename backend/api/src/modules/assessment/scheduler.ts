@@ -426,7 +426,11 @@ export async function runSchedulerTick(
           subject: `New test available: ${assessment.title}`,
           html: `<p>Hello ${membership.user.displayName ?? 'there'}, the recurring test <strong>${assessment.title}</strong> is now open and is due by ${closesAt.toLocaleDateString('en-GB')}.</p>`,
           type: 'schedule_opened',
-          tenantId: schedule.tenantId
+          tenantId: schedule.tenantId,
+          membershipId: membership.id,
+          title: `New test available: ${assessment.title}`,
+          body: `The recurring test "${assessment.title}" is now open and is due by ${closesAt.toLocaleDateString('en-GB')}.`,
+          link: '/app/my-tests'
         });
       }
     });

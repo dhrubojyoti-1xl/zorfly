@@ -747,7 +747,11 @@ export function createAttemptRouter(
       subject: `Result published: ${version.assessment.title}`,
       html: `<p>You scored ${String(scores.obtained)}/${String(scores.max)} (${String(scores.percentage)}%) — ${passed ? 'passed' : 'not passed'}.</p>`,
       type: 'result_published',
-      tenantId: auth.tenantId
+      tenantId: auth.tenantId,
+      membershipId: membership.id,
+      title: `Result published: ${version.assessment.title}`,
+      body: `You scored ${String(scores.obtained)}/${String(scores.max)} (${String(scores.percentage)}%) — ${passed ? 'passed' : 'not passed'}.`,
+      link: `/app/results/${attempt.publicId}`
     });
     await service.recordAudit(
       {

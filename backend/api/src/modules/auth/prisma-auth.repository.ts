@@ -1,8 +1,10 @@
-import { createHash, createHmac, randomBytes } from 'node:crypto';
+import { createHash, createHmac, randomBytes, randomUUID } from 'node:crypto';
 import {
   AuditActorType,
   AuditOutcome,
+  DeliveryStatus,
   MembershipStatus,
+  NotificationChannel,
   RecordStatus,
   SubscriptionStatus,
   TenantStatus,
@@ -21,6 +23,7 @@ import type {
   AuthRepository,
   AuthUser,
   CompanyMembership,
+  NotificationInput,
   PublicCompany,
   PublicUser,
   RegistrationCommand,
@@ -609,6 +612,27 @@ export class PrismaAuthRepository implements AuthRepository {
         previousEventHash: previous?.eventHash ?? null,
         eventHash,
         occurredAt
+      }
+    });
+  }
+
+  public async createNotification(input: NotificationInput): Promise<void> {
+    await this.prisma.notificationDelivery.create({
+      data: {
+        tenantId: input.tenantId,
+        recipientMembershipId: input.membershipId,
+        channel: NotificationChannel.IN_APP,
+        destinationHash: createHash('sha256').update(input.membershipId).digest('hex'),
+        deduplicationKey: randomUUID(),
+        payload: {
+          type: input.type,
+          title: input.title,
+          body: input.body ?? '',
+          link: input.link ?? ''
+        },
+        status: DeliveryStatus.DELIVERED,
+        sentAt: new Date(),
+        deliveredAt: new Date()
       }
     });
   }

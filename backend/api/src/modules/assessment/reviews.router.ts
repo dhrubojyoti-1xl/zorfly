@@ -286,12 +286,17 @@ export function createReviewRouter(
     });
 
     if (!stillPending && attempt.membership) {
+      const reviewedTitle = attempt.assignment?.assessmentVersion.assessment.title ?? 'Test';
       service.sendNotification({
         to: attempt.membership.user.emailCanonical,
-        subject: `Result published: ${attempt.assignment?.assessmentVersion.assessment.title ?? 'Test'}`,
+        subject: `Result published: ${reviewedTitle}`,
         html: `<p>Your typed answers have been reviewed. Final score: ${String(obtained)}/${String(totalMax)} (${String(percentage)}%) — ${passed ? 'passed' : 'not passed'}.</p>`,
         type: 'result_published',
-        tenantId: auth.tenantId
+        tenantId: auth.tenantId,
+        membershipId: attempt.membership.id,
+        title: `Result published: ${reviewedTitle}`,
+        body: `Your typed answers have been reviewed. Final score: ${String(obtained)}/${String(totalMax)} (${String(percentage)}%) — ${passed ? 'passed' : 'not passed'}.`,
+        link: `/app/results/${attempt.publicId}`
       });
       await service.recordAudit(
         {
