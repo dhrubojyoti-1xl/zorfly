@@ -14,6 +14,7 @@
     "typecheck": "tsc -b --pretty false"
   },
   "dependencies": {
+    "@fontsource-variable/manrope": "5.2.8",
     "@tanstack/react-query": "5.101.4",
     "@zorfly/contracts": "workspace:*",
     "axios": "1.13.2",
