@@ -3,7 +3,6 @@ import { Navigate, Route, Routes } from 'react-router-dom';
 import { useAuth } from './context/AuthContext.jsx';
 
 const AppLayout = lazy(() => import('./layouts/AppLayout.jsx'));
-const AdminDashboard = lazy(() => import('./pages/AdminDashboard.jsx'));
 const Apply = lazy(() => import('./pages/Apply.jsx'));
 const AssignmentResults = lazy(() => import('./pages/AssignmentResults.jsx'));
 const Badges = lazy(() => import('./pages/Badges.jsx'));
@@ -74,11 +73,8 @@ function Protected({ children, roles, perm }) {
 
 const MANAGERS = ['company_admin', 'hr', 'team_leader'];
 
-// The redesigned company overview is for Company Admin and HR; every other role
-// keeps the existing role-aware dashboard.
 function HomeDashboard() {
-  const { role } = useAuth();
-  return role === 'company_admin' || role === 'hr' ? <AdminDashboard /> : <Dashboard />;
+  return <Dashboard />;
 }
 
 export default function App() {
