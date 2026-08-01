@@ -43,6 +43,7 @@ import {
   createPublicDriveRouter
 } from './modules/recruitment/candidate.router.js';
 import { createReportRouter } from './modules/reports/reports.router.js';
+import { createBillingRouter } from './modules/billing/billing.router.js';
 
 export interface AppOptions {
   environment: ApiEnvironment;
@@ -170,6 +171,10 @@ export function createApp({ environment, version, auth, organization, ai }: AppO
           auth.tokens,
           environment.SESSION_HASH_KEY
         )
+      );
+      app.use(
+        '/api/v1/billing',
+        createBillingRouter(organization.prisma, auth.service, auth.tokens)
       );
       if (ai) {
         app.use(

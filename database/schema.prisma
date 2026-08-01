@@ -501,6 +501,13 @@ enum SubscriptionStatus {
   @@schema("platform")
 }
 
+enum CouponDiscountType {
+  PERCENT
+  FLAT
+
+  @@schema("platform")
+}
+
 enum InvoiceStatus {
   DRAFT
   OPEN
@@ -673,6 +680,22 @@ model PlatformUserRole {
 
   @@id([userId, roleId])
   @@index([expiresAt])
+  @@schema("platform")
+}
+
+model Coupon {
+  id            String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  code          String             @unique @db.VarChar(30)
+  discountType  CouponDiscountType
+  discountValue Decimal            @db.Decimal(10, 2)
+  maxUses       Int?
+  usedCount     Int                @default(0)
+  active        Boolean            @default(true)
+  expiresAt     DateTime?          @db.Timestamptz(6)
+  createdAt     DateTime           @default(now()) @db.Timestamptz(6)
+  updatedAt     DateTime           @updatedAt @db.Timestamptz(6)
+
+  @@index([active, expiresAt])
   @@schema("platform")
 }
 
