@@ -12,6 +12,7 @@ export const apiEnvironmentSchema = z
       .default('info'),
     API_HOST: z.string().min(1).default('0.0.0.0'),
     API_PORT: z.coerce.number().int().positive().max(65535).default(5000),
+    PORT: z.coerce.number().int().positive().max(65535).optional(),
     WEB_ORIGIN: z.url().default('http://localhost:5173'),
     APP_URL: z.url().default('http://localhost:5173'),
     DATABASE_URL: z

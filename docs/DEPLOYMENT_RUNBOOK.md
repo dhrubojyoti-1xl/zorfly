@@ -13,6 +13,32 @@ below for the exact gap between this runbook and Phase 2 of
 [docs/OPERATIONS_AND_RESILIENCE.md](./OPERATIONS_AND_RESILIENCE.md) for the
 target operating model these steps will eventually satisfy.
 
+## Render free-tier demo
+
+The root `render.yaml` is the supported one-click demo deployment. From the
+Render dashboard choose **New → Blueprint**, connect this repository, and enter
+`ANTHROPIC_API_KEY` when prompted. The Blueprint creates:
+
+- the `zorfly-web` static site;
+- the `zorfly-api` free web service;
+- a free PostgreSQL database and applies Prisma migrations on API start; and
+- a free Key Value instance reserved for the worker queue.
+
+Render generates both session secrets and injects internal database/cache URLs;
+they must not be copied into GitHub. The free plan does not support background
+workers, so `zorfly-worker` is deliberately excluded. It currently handles only
+the platform health job and is not required for the demo workflows.
+
+The fixed service names provide the frontend and API URLs used for CORS and the
+Vite build. If Render reports that either name is unavailable, rename both the
+service and every matching `*.onrender.com` value in `render.yaml` before the
+first Blueprint sync.
+
+This is not a production topology: free web services sleep, free Key Value data
+is non-persistent, and free PostgreSQL has limited retention and no production
+backup guarantees. SMTP delivery is also unavailable on Render Free; auth flows
+that require email need an HTTPS email-provider adapter before production use.
+
 ## Images
 
 | Image | Dockerfile | Exposes | Entry point |

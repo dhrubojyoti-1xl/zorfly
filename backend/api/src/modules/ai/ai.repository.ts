@@ -134,6 +134,22 @@ export async function ensureModelConfiguration(
   });
 }
 
+/** Enables the platform Claude key for a tenant without ever persisting the key itself. */
+export async function ensureDefaultClaudeConfiguration(
+  prisma: ZorflyPrismaClient,
+  tenantId: string
+): Promise<void> {
+  await ensureProviderCatalog(prisma);
+  await ensureTenantProviderConfiguration(prisma, tenantId, 'claude', 'ANTHROPIC_API_KEY');
+  await ensureModelConfiguration(prisma, {
+    tenantId,
+    key: 'question-generation.default',
+    purpose: 'QUESTION_GENERATION',
+    providerKey: 'claude',
+    modelKey: 'claude-sonnet-5'
+  });
+}
+
 export interface PromptVersionInput {
   tenantId: string;
   key: string;

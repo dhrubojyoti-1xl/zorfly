@@ -24,6 +24,7 @@ import {
 } from './ai.validation.js';
 import type { AiExecutionService } from './ai.service.js';
 import {
+  ensureDefaultClaudeConfiguration,
   linkGenerationDecision,
   resolveExecutionPlan,
   upsertGenerationDrafts
@@ -103,8 +104,28 @@ export function createAiRouter(
   aiService: AiExecutionService
 ): Router {
   const router = Router();
+  const configuredTenants = new Set<string>();
   router.use(createRequireAuth(tokens));
   router.use(createRequirePermission(authService, 'questions:manage'));
+  router.use(async (request, _response, next) => {
+    try {
+      const auth = principal(request);
+      if (process.env.ANTHROPIC_API_KEY && !configuredTenants.has(auth.tenantId)) {
+        const existingPlan = await resolveExecutionPlan(
+          prisma,
+          auth.tenantId,
+          QUESTION_GENERATION_CONFIGURATION_KEY
+        );
+        if (existingPlan.length === 0) {
+          await ensureDefaultClaudeConfiguration(prisma, auth.tenantId);
+        }
+        configuredTenants.add(auth.tenantId);
+      }
+      next();
+    } catch (error) {
+      next(error);
+    }
+  });
 
   router.get('/status', async (request, response) => {
     const auth = principal(request);

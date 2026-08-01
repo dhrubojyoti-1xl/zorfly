@@ -180,7 +180,7 @@ export default function AiGenerateModal({ open, mode, categories = [], onClose, 
             <strong>AI is not configured yet.</strong>
           </p>
           <p>
-            Add an <code>ANTHROPIC_API_KEYS</code> value to the backend environment and restart the
+            Add an <code>ANTHROPIC_API_KEY</code> value to the backend environment and restart the
             server to enable AI generation.
           </p>
         </div>

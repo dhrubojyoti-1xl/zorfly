@@ -13,6 +13,7 @@ import { runSchedulerTick } from './modules/assessment/scheduler.js';
 const SCHEDULER_TICK_INTERVAL_MS = 60_000;
 
 const environment = parseApiEnvironment();
+const listenPort = environment.PORT ?? environment.API_PORT;
 const prisma = createPrismaClient(environment.DATABASE_URL);
 const aiExecutionService = new AiExecutionService({
   prisma,
@@ -39,9 +40,9 @@ const app = createApp({
   ai: { service: aiExecutionService }
 });
 
-const server = app.listen(environment.API_PORT, environment.API_HOST, () => {
+const server = app.listen(listenPort, environment.API_HOST, () => {
   process.stdout.write(
-    `Zorfly API listening at http://${environment.API_HOST}:${String(environment.API_PORT)}\n`
+    `Zorfly API listening at http://${environment.API_HOST}:${String(listenPort)}\n`
   );
 });
 
