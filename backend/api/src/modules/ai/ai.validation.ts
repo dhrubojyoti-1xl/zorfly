@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { difficultyKeys, questionSchema } from '../assessment/question.validation.js';
 import { aiQuestionTypes } from './question-generation.js';
+import { studyContentTypeKeys } from './study-generation.js';
 
 const uuid = z.uuid('Invalid value.');
 const topic = z
@@ -39,6 +40,17 @@ export const generateTestSchema = z.object({
   instructions
 });
 export type GenerateTestInput = z.output<typeof generateTestSchema>;
+
+export const generateStudySchema = z.object({
+  topic,
+  contentType: z.enum(studyContentTypeKeys).default('study_guide'),
+  categoryId: uuid.optional().nullable(),
+  subCategoryId: uuid.optional().nullable(),
+  difficulty: z.enum(difficultyKeys).optional().nullable(),
+  questionCount: z.number().int().min(0).max(20).optional(),
+  instructions
+});
+export type GenerateStudyInput = z.output<typeof generateStudySchema>;
 
 const questionWithHistory = z.intersection(
   z.object({ historyId: z.string().trim().min(1).max(60).optional() }),

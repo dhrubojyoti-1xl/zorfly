@@ -11,11 +11,15 @@ import { createRequireAuth, createRequirePermission } from '../auth/auth.middlew
 import type { AuthService } from '../auth/auth.service.js';
 import type { RequestContext, SessionPrincipal } from '../auth/auth.types.js';
 import type { TokenService } from '../auth/tokens.js';
+import { learningMaterialSchema } from '../learning/learning-material.validation.js';
+import { createLearningMaterial } from '../learning/learning.router.js';
 import {
   generateQuestionsSchema,
+  generateStudySchema,
   generateTestSchema,
   saveQuestionsSchema,
   type GenerateQuestionsInput,
+  type GenerateStudyInput,
   type GenerateTestInput
 } from './ai.validation.js';
 import type { AiExecutionService } from './ai.service.js';
@@ -33,6 +37,13 @@ import {
   type AiQuestionType,
   type QuestionDraft
 } from './question-generation.js';
+import {
+  buildStudyGenerationPrompt,
+  draftToStudyMaterial,
+  studyContentTypeKeys,
+  studyGenerationOutputSchema,
+  studyGenerationSystemPrompt
+} from './study-generation.js';
 
 const QUESTION_GENERATION_CONFIGURATION_KEY = 'question-generation.default';
 
@@ -73,6 +84,18 @@ function validateGenerationOutput(value: unknown): AiQuestionOutput {
   return value as AiQuestionOutput;
 }
 
+function validateStudyOutput(value: unknown): Record<string, unknown> {
+  if (
+    typeof value !== 'object' ||
+    value === null ||
+    typeof (value as { title?: unknown }).title !== 'string' ||
+    !Array.isArray((value as { sections?: unknown }).sections)
+  ) {
+    throw new Error('The AI response did not include valid study material.');
+  }
+  return value as Record<string, unknown>;
+}
+
 export function createAiRouter(
   prisma: ZorflyPrismaClient,
   authService: AuthService,
@@ -95,7 +118,7 @@ export function createAiRouter(
       data: {
         configured: plan.length > 0,
         questionTypes: aiQuestionTypes,
-        studyContentTypes: []
+        studyContentTypes: studyContentTypeKeys
       }
     });
   });
@@ -375,6 +398,73 @@ export function createAiRouter(
             testId: test.id,
             questionCount: questionIds.length,
             message: `Draft test created with ${questionIds.length} question(s).`
+          }
+        });
+      } catch (error) {
+        next(error);
+      }
+    }
+  );
+
+  router.post(
+    '/study/generate',
+    createRequirePermission(authService, 'learning:manage'),
+    validate(generateStudySchema),
+    async (request, response, next) => {
+      try {
+        const auth = principal(request);
+        const body = request.body as GenerateStudyInput;
+
+        const result = await aiService.generate<Record<string, unknown>>({
+          tenantId: auth.tenantId,
+          actorId: auth.userId,
+          purpose: AIExecutionPurpose.QUESTION_GENERATION,
+          configurationKey: QUESTION_GENERATION_CONFIGURATION_KEY,
+          capability: 'structured_output',
+          messages: [
+            { role: 'system', content: studyGenerationSystemPrompt },
+            {
+              role: 'user',
+              content: buildStudyGenerationPrompt({
+                topic: body.topic,
+                contentType: body.contentType,
+                ...(body.difficulty ? { difficulty: body.difficulty } : {}),
+                ...(body.instructions ? { instructions: body.instructions } : {}),
+                ...(body.questionCount !== undefined ? { questionCount: body.questionCount } : {})
+              })
+            }
+          ],
+          outputSchema: studyGenerationOutputSchema,
+          validateOutput: validateStudyOutput,
+          idempotencyKey: idempotencyKey(request, 'study-generation', auth.tenantId),
+          sourceType: 'study_generation'
+        });
+
+        const draft = draftToStudyMaterial(result.output, body.topic);
+        const materialInput = learningMaterialSchema.parse({
+          title: draft.title,
+          categoryId: body.categoryId,
+          subCategoryId: body.subCategoryId ?? null,
+          type: body.contentType,
+          body: { overview: draft.overview, sections: draft.sections, keyPoints: draft.keyPoints },
+          questions: draft.questions,
+          tags: ['ai-generated']
+        });
+
+        const material = await createLearningMaterial(
+          prisma,
+          auth.tenantId,
+          auth.userId,
+          materialInput,
+          { source: 'ai' }
+        );
+
+        response.status(201).json({
+          success: true,
+          data: {
+            id: material.id,
+            title: draft.title,
+            message: 'Study material generated successfully.'
           }
         });
       } catch (error) {
