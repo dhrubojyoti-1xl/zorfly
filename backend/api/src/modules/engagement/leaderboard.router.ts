@@ -29,7 +29,7 @@ function periodStart(period: string): Date | null {
   return null;
 }
 
-interface LeaderboardRow {
+export interface LeaderboardRow {
   rank: number;
   userId: string;
   fullName: string;
@@ -60,7 +60,7 @@ function number(value: unknown, fallback = 0): number {
   return typeof value === 'number' && Number.isFinite(value) ? value : fallback;
 }
 
-async function computeLeaderboard(
+export async function computeLeaderboard(
   prisma: ZorflyPrismaClient,
   tenantId: string,
   scope: string,

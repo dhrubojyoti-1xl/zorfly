@@ -42,6 +42,7 @@ import {
   createCandidateAttemptRouter,
   createPublicDriveRouter
 } from './modules/recruitment/candidate.router.js';
+import { createReportRouter } from './modules/reports/reports.router.js';
 
 export interface AppOptions {
   environment: ApiEnvironment;
@@ -161,6 +162,15 @@ export function createApp({ environment, version, auth, organization, ai }: AppO
         createPublicDriveRouter(organization.prisma, auth.tokens, environment.SESSION_HASH_KEY)
       );
       app.use('/api/v1/candidate', createCandidateAttemptRouter(organization.prisma, auth.tokens));
+      app.use(
+        '/api/v1/reports',
+        createReportRouter(
+          organization.prisma,
+          auth.service,
+          auth.tokens,
+          environment.SESSION_HASH_KEY
+        )
+      );
       if (ai) {
         app.use(
           '/api/v1/ai',
