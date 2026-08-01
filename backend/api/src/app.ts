@@ -30,6 +30,7 @@ import { createAiRouter } from './modules/ai/ai.router.js';
 import type { AiExecutionService } from './modules/ai/ai.service.js';
 import { createLearningRouter } from './modules/learning/learning.router.js';
 import { createStudyRouter } from './modules/learning/study.router.js';
+import { createPathsRouter } from './modules/learning/paths.router.js';
 
 export interface AppOptions {
   environment: ApiEnvironment;
@@ -116,6 +117,7 @@ export function createApp({ environment, version, auth, organization, ai }: AppO
         createLearningRouter(organization.prisma, auth.service, auth.tokens)
       );
       app.use('/api/v1/study', createStudyRouter(organization.prisma, auth.service, auth.tokens));
+      app.use('/api/v1/paths', createPathsRouter(organization.prisma, auth.service, auth.tokens));
       if (ai) {
         app.use(
           '/api/v1/ai',

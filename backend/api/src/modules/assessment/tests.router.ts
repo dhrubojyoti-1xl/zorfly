@@ -484,9 +484,10 @@ export function sanitizeQuestionContent(type: string, value: Prisma.JsonValue): 
   throw new ApiError(500, `Unknown question type: ${type}`);
 }
 
-type AssignmentTargetType = 'company' | 'department' | 'team' | 'employee' | 'role' | 'difficulty';
+export type AssignmentTargetType =
+  'company' | 'department' | 'team' | 'employee' | 'role' | 'difficulty';
 
-interface ResolvedAssignmentTarget {
+export interface ResolvedAssignmentTarget {
   scopeType: TargetScopeType;
   targetId: string | null;
   targetValue: string | null;
@@ -498,7 +499,7 @@ interface ResolvedAssignmentTarget {
   }>;
 }
 
-async function resolveAssignmentTarget(
+export async function resolveAssignmentTarget(
   transaction: Prisma.TransactionClient,
   tenantId: string,
   targetType: AssignmentTargetType,
