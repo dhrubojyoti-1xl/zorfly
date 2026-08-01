@@ -25,12 +25,18 @@ export const addRecipientSchema = z.object({
     .toLowerCase()
     .pipe(z.email('Enter a valid email address.'))
     .pipe(z.string().max(254)),
-  reportTypes: z.array(z.enum(BROADCAST_REPORT_KINDS)).max(BROADCAST_REPORT_KINDS.length).default([])
+  reportTypes: z
+    .array(z.enum(BROADCAST_REPORT_KINDS))
+    .max(BROADCAST_REPORT_KINDS.length)
+    .default([])
 });
 export type AddRecipientInput = z.output<typeof addRecipientSchema>;
 
 export const updateRecipientSchema = z.object({
-  reportTypes: z.array(z.enum(BROADCAST_REPORT_KINDS)).max(BROADCAST_REPORT_KINDS.length).optional(),
+  reportTypes: z
+    .array(z.enum(BROADCAST_REPORT_KINDS))
+    .max(BROADCAST_REPORT_KINDS.length)
+    .optional(),
   active: z.boolean().optional()
 });
 export type UpdateRecipientInput = z.output<typeof updateRecipientSchema>;

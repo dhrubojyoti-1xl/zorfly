@@ -99,12 +99,22 @@ export async function individualReport(
   });
   if (!membership) return null;
   const attempts = await prisma.assessmentAttempt.findMany({
-    where: { tenantId, membershipId, mode: AttemptMode.OFFICIAL, status: { in: SUBMITTED_STATUSES } },
+    where: {
+      tenantId,
+      membershipId,
+      mode: AttemptMode.OFFICIAL,
+      status: { in: SUBMITTED_STATUSES }
+    },
     orderBy: { submittedAt: 'asc' },
     select: { id: true, percentage: true, passed: true, resultSummary: true, submittedAt: true }
   });
   const practiceCount = await prisma.assessmentAttempt.count({
-    where: { tenantId, membershipId, mode: AttemptMode.PRACTICE, status: { in: SUBMITTED_STATUSES } }
+    where: {
+      tenantId,
+      membershipId,
+      mode: AttemptMode.PRACTICE,
+      status: { in: SUBMITTED_STATUSES }
+    }
   });
   const breakdown = await categoryBreakdown(
     prisma,
@@ -261,9 +271,7 @@ export async function recruitmentDriveReport(
         timeTakenSec: attempt?.durationSeconds ?? 0
       };
     })
-    .sort(
-      (a, b) => b.percentage - a.percentage || a.timeTakenSec - b.timeTakenSec
-    )
+    .sort((a, b) => b.percentage - a.percentage || a.timeTakenSec - b.timeTakenSec)
     .map((row, index) => ({ rank: index + 1, ...row }));
   const completed = applications.filter((application) => application.completedAt).length;
   const shortlisted = applications.filter(
@@ -405,7 +413,14 @@ export async function companyPerformanceReport(
   const companyAvg = averages(attempts).avgPercentage ?? 0;
   const deptStats = new Map<
     string,
-    { sum: number; count: number; employees: number; participated: number; topName: string; topAvg: number }
+    {
+      sum: number;
+      count: number;
+      employees: number;
+      participated: number;
+      topName: string;
+      topAvg: number;
+    }
   >();
   for (const employee of employees) {
     const departmentName = employee.department?.name ?? 'Unassigned';
@@ -426,8 +441,10 @@ export async function companyPerformanceReport(
     }
     const empAvg =
       theirAttempts.length > 0
-        ? theirAttempts.reduce((sum, attempt) => sum + (attempt.percentage ? Number(attempt.percentage) : 0), 0) /
-          theirAttempts.length
+        ? theirAttempts.reduce(
+            (sum, attempt) => sum + (attempt.percentage ? Number(attempt.percentage) : 0),
+            0
+          ) / theirAttempts.length
         : -1;
     if (empAvg > stat.topAvg) {
       stat.topAvg = empAvg;

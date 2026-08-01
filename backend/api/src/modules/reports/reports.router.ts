@@ -140,7 +140,10 @@ function toCsv(rows: Array<Record<string, unknown>>): string {
   ].join('\n');
 }
 
-function csvRowsFor(kind: ReportKind, data: Record<string, unknown>): Array<Record<string, unknown>> {
+function csvRowsFor(
+  kind: ReportKind,
+  data: Record<string, unknown>
+): Array<Record<string, unknown>> {
   if (kind === 'team' || kind === 'department') {
     return (data.members as Array<Record<string, unknown>> | undefined) ?? [];
   }
@@ -305,7 +308,10 @@ export function createReportRouter(
     if (next.length === recipients.length) {
       throw new ApiError(404, 'The requested recipient was not found.');
     }
-    await prisma.reportDefinition.update({ where: { id: row.id }, data: { recipients: next as unknown as Prisma.InputJsonValue } });
+    await prisma.reportDefinition.update({
+      where: { id: row.id },
+      data: { recipients: next as unknown as Prisma.InputJsonValue }
+    });
     response.json({ success: true, data: { message: 'Recipient removed successfully.' } });
   });
 

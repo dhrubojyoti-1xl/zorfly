@@ -287,7 +287,9 @@ integration('Recruitment HTTP routes (PostgreSQL-backed)', () => {
       .get('/api/v1/drives')
       .set('authorization', adminAuthorization)
       .expect(200);
-    const afterCloseBody = afterClose.body as { data: { rows: Array<{ id: string; status: string }> } };
+    const afterCloseBody = afterClose.body as {
+      data: { rows: Array<{ id: string; status: string }> };
+    };
     expect(afterCloseBody.data.rows.find((entry) => entry.id === driveId)?.status).toBe('closed');
   });
 

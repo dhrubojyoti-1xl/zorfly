@@ -205,7 +205,12 @@ integration('Reports HTTP routes (PostgreSQL-backed)', () => {
     const driveCreated = await request(app)
       .post('/api/v1/drives')
       .set('authorization', adminAuthorization)
-      .send({ title: `Report Drive ${suffix}`, description: '', testId, showResultToCandidate: false })
+      .send({
+        title: `Report Drive ${suffix}`,
+        description: '',
+        testId,
+        showResultToCandidate: false
+      })
       .expect(201);
     const driveBody = driveCreated.body as { data: { id: string; token: string } };
     driveId = driveBody.data.id;
@@ -373,18 +378,18 @@ integration('Reports HTTP routes (PostgreSQL-backed)', () => {
       .get('/api/v1/reports/settings/recipients')
       .set('authorization', adminAuthorization)
       .expect(200);
-    expect(
-      (afterDelete.body as { data: { recipients: unknown[] } }).data.recipients
-    ).toHaveLength(0);
+    expect((afterDelete.body as { data: { recipients: unknown[] } }).data.recipients).toHaveLength(
+      0
+    );
 
     const schedule = await request(app)
       .patch('/api/v1/reports/settings/schedule')
       .set('authorization', adminAuthorization)
       .send({ frequency: 'weekly', dayOfWeek: 1, sendHour: 8, sendMinute: 0, active: true })
       .expect(200);
-    expect(
-      (schedule.body as { data: { message: string; frequency: string } }).data.frequency
-    ).toBe('weekly');
+    expect((schedule.body as { data: { message: string; frequency: string } }).data.frequency).toBe(
+      'weekly'
+    );
 
     const getSchedule = await request(app)
       .get('/api/v1/reports/settings/schedule')

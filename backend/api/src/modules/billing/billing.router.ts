@@ -47,7 +47,13 @@ function context(request: Request): RequestContext {
 const planInclude = { entitlements: true } as const;
 
 function planShape(
-  plan: { id: string; name: string; currency: string; monthlyAmount: unknown; entitlements: Array<{ featureKey: string; enabled: boolean; limitValue: bigint | null }> },
+  plan: {
+    id: string;
+    name: string;
+    currency: string;
+    monthlyAmount: unknown;
+    entitlements: Array<{ featureKey: string; enabled: boolean; limitValue: bigint | null }>;
+  },
   isCurrent: boolean
 ) {
   const limits: Record<string, number> = { maxEmployees: -1, maxTests: -1 };
@@ -117,7 +123,10 @@ export function createBillingRouter(
         orderBy: { monthlyAmount: 'asc' }
       }),
       prisma.tenantSubscription.findFirst({
-        where: { tenantId: auth.tenantId, status: { in: [SubscriptionStatus.ACTIVE, SubscriptionStatus.TRIALING] } },
+        where: {
+          tenantId: auth.tenantId,
+          status: { in: [SubscriptionStatus.ACTIVE, SubscriptionStatus.TRIALING] }
+        },
         include: { plan: { include: planInclude } },
         orderBy: { createdAt: 'desc' }
       }),
@@ -133,9 +142,7 @@ export function createBillingRouter(
       success: true,
       data: {
         country: 'IN',
-        currentPlan: currentSubscription
-          ? planShape(currentSubscription.plan, true)
-          : null,
+        currentPlan: currentSubscription ? planShape(currentSubscription.plan, true) : null,
         usage: { employees: employeeCount, tests: testCount },
         plans: plans.map((plan) => planShape(plan, plan.id === currentPlanId))
       }
@@ -219,7 +226,12 @@ export function createBillingRouter(
         tenantId: auth.tenantId,
         entityType: 'tenant_subscription',
         entityId: plan.id,
-        metadata: { plan: plan.name, pricePaid: finalPrice, currency: plan.currency, coupon: coupon?.code ?? null }
+        metadata: {
+          plan: plan.name,
+          pricePaid: finalPrice,
+          currency: plan.currency,
+          coupon: coupon?.code ?? null
+        }
       },
       context(request)
     );
