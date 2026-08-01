@@ -12,8 +12,8 @@ services:
     plan: free
     region: singapore
     buildCommand: >-
-      corepack enable && corepack prepare pnpm@11.18.0 --activate && pnpm install --frozen-lockfile
-      --prod=false && pnpm db:generate && pnpm --filter @zorfly/api... build
+      pnpm install --frozen-lockfile --prod=false && pnpm db:generate && pnpm --filter
+      @zorfly/api... build
     startCommand: pnpm db:migrate:deploy && pnpm --filter @zorfly/api start
     healthCheckPath: /api/v1/health
     autoDeployTrigger: checksPass
@@ -54,8 +54,7 @@ services:
     name: zorfly-web
     runtime: static
     buildCommand: >-
-      corepack enable && corepack prepare pnpm@11.18.0 --activate && pnpm install --frozen-lockfile
-      --prod=false && pnpm --filter @zorfly/web... build
+      pnpm install --frozen-lockfile --prod=false && pnpm --filter @zorfly/web... build
     staticPublishPath: frontend/web/dist
     autoDeployTrigger: checksPass
     envVars:
