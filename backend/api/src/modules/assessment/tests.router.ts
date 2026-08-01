@@ -626,7 +626,7 @@ export async function resolveAssignmentTarget(
   };
 }
 
-async function ledTeamIds(
+export async function ledTeamIds(
   prisma: ZorflyPrismaClient,
   tenantId: string,
   userId: string

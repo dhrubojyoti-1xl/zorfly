@@ -143,6 +143,7 @@ export const defaultRolePermissions: Readonly<Record<TenantRoleKey, readonly Per
     'tests:manage',
     'tests:read',
     'questions:read',
+    'schedules:manage',
     'employees:read',
     'departments:read',
     'teams:read',

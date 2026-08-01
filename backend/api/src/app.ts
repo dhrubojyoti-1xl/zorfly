@@ -26,6 +26,7 @@ import { createCategoryRouter } from './modules/assessment/categories.router.js'
 import { createQuestionRouter } from './modules/assessment/questions.router.js';
 import { createTestRouter } from './modules/assessment/tests.router.js';
 import { createAttemptRouter } from './modules/assessment/attempts.router.js';
+import { createScheduleRouter } from './modules/assessment/schedules.router.js';
 import { createAiRouter } from './modules/ai/ai.router.js';
 import type { AiExecutionService } from './modules/ai/ai.service.js';
 import { createLearningRouter } from './modules/learning/learning.router.js';
@@ -118,6 +119,10 @@ export function createApp({ environment, version, auth, organization, ai }: AppO
       );
       app.use('/api/v1/study', createStudyRouter(organization.prisma, auth.service, auth.tokens));
       app.use('/api/v1/paths', createPathsRouter(organization.prisma, auth.service, auth.tokens));
+      app.use(
+        '/api/v1/schedules',
+        createScheduleRouter(organization.prisma, auth.service, auth.tokens)
+      );
       if (ai) {
         app.use(
           '/api/v1/ai',
