@@ -445,6 +445,7 @@ export function createAiRouter(
           title: draft.title,
           categoryId: body.categoryId,
           subCategoryId: body.subCategoryId ?? null,
+          difficulty: body.difficulty ?? null,
           type: body.contentType,
           body: { overview: draft.overview, sections: draft.sections, keyPoints: draft.keyPoints },
           questions: draft.questions,

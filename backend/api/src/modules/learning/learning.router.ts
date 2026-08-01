@@ -12,6 +12,7 @@ import { ApiError } from '../../platform/api-error.js';
 import { validate } from '../../platform/validate.js';
 import { createRequireAuth, createRequirePermission } from '../auth/auth.middleware.js';
 import type { AuthService } from '../auth/auth.service.js';
+import type { difficultyKeys } from '../assessment/question.validation.js';
 import type { SessionPrincipal } from '../auth/auth.types.js';
 import type { TokenService } from '../auth/tokens.js';
 import {
@@ -23,7 +24,7 @@ import {
 
 const uuid = z.uuid();
 
-const contentTypeCodes: Record<LearningMaterialType, LearningContentType> = {
+export const contentTypeCodes: Record<LearningMaterialType, LearningContentType> = {
   article: LearningContentType.ARTICLE,
   video: LearningContentType.VIDEO,
   pdf: LearningContentType.PDF,
@@ -33,20 +34,34 @@ const contentTypeCodes: Record<LearningMaterialType, LearningContentType> = {
   flashcards: LearningContentType.FLASHCARDS,
   practice_quiz: LearningContentType.PRACTICE_QUIZ
 };
-const codeToType = new Map(
+export const codeToType = new Map(
   Object.entries(contentTypeCodes).map(([key, value]) => [value, key])
 ) as Map<LearningContentType, LearningMaterialType>;
 
-function principal(request: Request): SessionPrincipal & { tenantId: string } {
+export const difficultyCodes: Record<(typeof difficultyKeys)[number], string> = {
+  fresher: 'FRESHER',
+  junior: 'JUNIOR',
+  mid_level: 'MID_LEVEL',
+  senior: 'SENIOR',
+  team_lead: 'TEAM_LEAD',
+  manager: 'MANAGER',
+  hod: 'HEAD_OF_DEPARTMENT',
+  cxo: 'CEO_CXO'
+};
+export const codeToDifficulty = new Map(
+  Object.entries(difficultyCodes).map(([key, value]) => [value, key])
+);
+
+export function principal(request: Request): SessionPrincipal & { tenantId: string } {
   if (!request.auth?.tenantId) throw new ApiError(401, 'Authentication is required.');
   return { ...request.auth, tenantId: request.auth.tenantId };
 }
 
-function queryString(value: unknown): string {
+export function queryString(value: unknown): string {
   return typeof value === 'string' ? value : '';
 }
 
-function pageQuery(request: Request) {
+export function pageQuery(request: Request) {
   const page = Math.max(1, Number.parseInt(queryString(request.query.page), 10) || 1);
   const requested = Number.parseInt(queryString(request.query.limit), 10) || 10;
   const limit = [10, 20, 50, 100].includes(requested) ? requested : 10;
@@ -81,6 +96,26 @@ async function resolveCategory(
   return category.id;
 }
 
+async function resolveDifficulty(
+  prisma: ZorflyPrismaClient,
+  tenantId: string,
+  difficulty: LearningMaterialInput['difficulty']
+): Promise<string | null> {
+  if (!difficulty) return null;
+  const level = await prisma.difficultyLevel.findFirst({
+    where: {
+      tenantId,
+      code: difficultyCodes[difficulty],
+      status: RecordStatus.ACTIVE,
+      deletedAt: null
+    }
+  });
+  if (!level) {
+    throw new ApiError(422, 'Invalid value.', { difficulty: 'Invalid value.' });
+  }
+  return level.id;
+}
+
 function versionBody(input: LearningMaterialInput) {
   return {
     description: input.description,
@@ -101,12 +136,16 @@ export async function createLearningMaterial(
   input: LearningMaterialInput,
   options: CreateMaterialOptions = {}
 ) {
-  const categoryId = await resolveCategory(prisma, tenantId, input);
+  const [categoryId, difficultyLevelId] = await Promise.all([
+    resolveCategory(prisma, tenantId, input),
+    resolveDifficulty(prisma, tenantId, input.difficulty)
+  ]);
   return prisma.$transaction(async (transaction) => {
     const material = await transaction.learningMaterial.create({
       data: {
         tenantId,
         categoryId,
+        difficultyLevelId,
         code: materialCode(),
         title: input.title,
         contentType: contentTypeCodes[input.type],
@@ -142,12 +181,13 @@ export async function createLearningMaterial(
   });
 }
 
-const materialInclude = {
+export const materialInclude = {
   category: { include: { parent: true } },
+  difficultyLevel: true,
   currentVersion: true
 } satisfies Prisma.LearningMaterialInclude;
 
-type MaterialRecord = Prisma.LearningMaterialGetPayload<{ include: typeof materialInclude }>;
+export type MaterialRecord = Prisma.LearningMaterialGetPayload<{ include: typeof materialInclude }>;
 
 interface VersionBodyShape {
   description?: string;
@@ -162,29 +202,7 @@ function versionBodyOf(value: Prisma.JsonValue | null | undefined): VersionBodyS
   return value as VersionBodyShape;
 }
 
-function summary(material: MaterialRecord) {
-  const version = material.currentVersion;
-  const shape = versionBodyOf(version?.body);
-  const isSubCategory = Boolean(material.category?.parentId);
-  const type = codeToType.get(material.contentType) ?? 'link';
-  return {
-    id: material.id,
-    title: material.title,
-    type,
-    categoryId: isSubCategory ? material.category?.parentId : (material.categoryId ?? null),
-    subCategoryId: isSubCategory ? material.categoryId : null,
-    category: isSubCategory
-      ? (material.category?.parent?.name ?? '')
-      : (material.category?.name ?? ''),
-    subCategory: isSubCategory ? (material.category?.name ?? '') : '',
-    questionCount: Array.isArray(shape.questions) ? shape.questions.length : 0,
-    source: shape.source ?? 'manual',
-    status: material.status === 'ARCHIVED' ? 'archived' : 'active',
-    createdAt: material.createdAt
-  };
-}
-
-function detail(material: MaterialRecord) {
+export function summary(material: MaterialRecord) {
   const version = material.currentVersion;
   const shape = versionBodyOf(version?.body);
   const isSubCategory = Boolean(material.category?.parentId);
@@ -194,12 +212,40 @@ function detail(material: MaterialRecord) {
     title: material.title,
     description: shape.description ?? '',
     type,
+    contentType: type,
     categoryId: isSubCategory ? material.category?.parentId : (material.categoryId ?? null),
     subCategoryId: isSubCategory ? material.categoryId : null,
     category: isSubCategory
       ? (material.category?.parent?.name ?? '')
       : (material.category?.name ?? ''),
     subCategory: isSubCategory ? (material.category?.name ?? '') : '',
+    difficulty: material.difficultyLevel ? codeToDifficulty.get(material.difficultyLevel.code) : '',
+    url: version?.sourceUrl ?? '',
+    questionCount: Array.isArray(shape.questions) ? shape.questions.length : 0,
+    source: shape.source ?? 'manual',
+    status: material.status === 'ARCHIVED' ? 'archived' : 'active',
+    createdAt: material.createdAt
+  };
+}
+
+export function detail(material: MaterialRecord) {
+  const version = material.currentVersion;
+  const shape = versionBodyOf(version?.body);
+  const isSubCategory = Boolean(material.category?.parentId);
+  const type = codeToType.get(material.contentType) ?? 'link';
+  return {
+    id: material.id,
+    title: material.title,
+    description: shape.description ?? '',
+    type,
+    contentType: type,
+    categoryId: isSubCategory ? material.category?.parentId : (material.categoryId ?? null),
+    subCategoryId: isSubCategory ? material.categoryId : null,
+    category: isSubCategory
+      ? (material.category?.parent?.name ?? '')
+      : (material.category?.name ?? ''),
+    subCategory: isSubCategory ? (material.category?.name ?? '') : '',
+    difficulty: material.difficultyLevel ? codeToDifficulty.get(material.difficultyLevel.code) : '',
     url: version?.sourceUrl ?? '',
     body: shape.body ?? { overview: '', sections: [], keyPoints: [] },
     questions: shape.questions ?? [],
@@ -226,13 +272,21 @@ export function createLearningRouter(
     const search = queryString(request.query.search).trim();
     const type = queryString(request.query.type);
     const categoryId = queryString(request.query.categoryId);
+    const difficulty = queryString(request.query.difficulty);
     const where = {
       tenantId: auth.tenantId,
       status: RecordStatus.ACTIVE,
       deletedAt: null,
       ...(search ? { title: { contains: search, mode: 'insensitive' as const } } : {}),
       ...(type ? { contentType: contentTypeCodes[type as LearningMaterialType] } : {}),
-      ...(categoryId ? { category: { OR: [{ id: categoryId }, { parentId: categoryId }] } } : {})
+      ...(categoryId ? { category: { OR: [{ id: categoryId }, { parentId: categoryId }] } } : {}),
+      ...(difficulty
+        ? {
+            difficultyLevel: {
+              code: difficultyCodes[difficulty as keyof typeof difficultyCodes] ?? ''
+            }
+          }
+        : {})
     };
     const [rows, totalCount] = await prisma.$transaction([
       prisma.learningMaterial.findMany({
@@ -289,7 +343,10 @@ export function createLearningRouter(
         include: { currentVersion: true }
       });
       if (!existing) throw new ApiError(404, 'The requested learning material was not found.');
-      const categoryId = await resolveCategory(prisma, auth.tenantId, input);
+      const [categoryId, difficultyLevelId] = await Promise.all([
+        resolveCategory(prisma, auth.tenantId, input),
+        resolveDifficulty(prisma, auth.tenantId, input.difficulty)
+      ]);
       await prisma.$transaction(async (transaction) => {
         const latestVersion = await transaction.learningMaterialVersion.findFirst({
           where: { materialId: existing.id },
@@ -329,6 +386,7 @@ export function createLearningRouter(
           data: {
             title: input.title,
             categoryId,
+            difficultyLevelId,
             contentType: contentTypeCodes[input.type],
             currentVersionId: version.id,
             updatedById: auth.userId

@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { difficultyKeys } from '../assessment/question.validation.js';
 
 export const learningMaterialTypeKeys = [
   'article',
@@ -55,6 +56,7 @@ export const learningMaterialSchema = z
     description: z.string().trim().max(2000).default(''),
     categoryId: uuid.optional().nullable(),
     subCategoryId: uuid.optional().nullable(),
+    difficulty: z.enum(difficultyKeys).optional().nullable(),
     type: z.enum(learningMaterialTypeKeys).default('link'),
     url: z.string().trim().max(1000).optional(),
     body: studyBodySchema,
