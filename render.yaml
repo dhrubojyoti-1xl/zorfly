@@ -13,13 +13,15 @@ services:
     region: singapore
     buildCommand: >-
       corepack enable && corepack prepare pnpm@11.18.0 --activate && pnpm install --frozen-lockfile
-      && pnpm db:generate && pnpm --filter @zorfly/api... build
+      --prod=false && pnpm db:generate && pnpm --filter @zorfly/api... build
     startCommand: pnpm db:migrate:deploy && pnpm --filter @zorfly/api start
     healthCheckPath: /api/v1/health
     autoDeployTrigger: checksPass
     envVars:
       - key: NODE_ENV
         value: production
+      - key: NODE_VERSION
+        value: 24.14.1
       - key: LOG_LEVEL
         value: info
       - key: API_HOST
@@ -53,10 +55,12 @@ services:
     runtime: static
     buildCommand: >-
       corepack enable && corepack prepare pnpm@11.18.0 --activate && pnpm install --frozen-lockfile
-      && pnpm --filter @zorfly/web... build
+      --prod=false && pnpm --filter @zorfly/web... build
     staticPublishPath: frontend/web/dist
     autoDeployTrigger: checksPass
     envVars:
+      - key: NODE_VERSION
+        value: 24.14.1
       - key: VITE_API_BASE_URL
         value: https://zorfly-api.onrender.com/api/v1
     routes:
