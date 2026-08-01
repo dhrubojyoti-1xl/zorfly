@@ -25,6 +25,21 @@ export const generateQuestionsSchema = z.object({
 });
 export type GenerateQuestionsInput = z.output<typeof generateQuestionsSchema>;
 
+export const generateTestSchema = z.object({
+  topic,
+  types: aiTypes,
+  questionCount: z.number().int().min(1).max(30).default(10),
+  categoryId: uuid,
+  subCategoryId: uuid.optional().nullable(),
+  difficulty,
+  marks: z.number().min(0.5).max(1000).default(1),
+  title: z.string().trim().max(200).optional(),
+  timeLimitMin: z.number().int().min(0).max(600).optional(),
+  passingPercentage: z.number().min(0).max(100).optional(),
+  instructions
+});
+export type GenerateTestInput = z.output<typeof generateTestSchema>;
+
 const questionWithHistory = z.intersection(
   z.object({ historyId: z.string().trim().min(1).max(60).optional() }),
   questionSchema

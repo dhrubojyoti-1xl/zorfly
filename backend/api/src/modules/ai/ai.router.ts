@@ -3,15 +3,20 @@ import { Router, type Request } from 'express';
 import { AIExecutionPurpose, type Prisma, type ZorflyPrismaClient } from '@zorfly/database';
 import { ApiError } from '../../platform/api-error.js';
 import { validate } from '../../platform/validate.js';
+import { questionSchema, type QuestionInput } from '../assessment/question.validation.js';
 import { createQuestion } from '../assessment/questions.router.js';
+import { testSchema } from '../assessment/test.validation.js';
+import { createDraftTest } from '../assessment/tests.router.js';
 import { createRequireAuth, createRequirePermission } from '../auth/auth.middleware.js';
 import type { AuthService } from '../auth/auth.service.js';
-import type { SessionPrincipal } from '../auth/auth.types.js';
+import type { RequestContext, SessionPrincipal } from '../auth/auth.types.js';
 import type { TokenService } from '../auth/tokens.js';
 import {
   generateQuestionsSchema,
+  generateTestSchema,
   saveQuestionsSchema,
-  type GenerateQuestionsInput
+  type GenerateQuestionsInput,
+  type GenerateTestInput
 } from './ai.validation.js';
 import type { AiExecutionService } from './ai.service.js';
 import {
@@ -34,6 +39,17 @@ const QUESTION_GENERATION_CONFIGURATION_KEY = 'question-generation.default';
 function principal(request: Request): SessionPrincipal & { tenantId: string } {
   if (!request.auth?.tenantId) throw new ApiError(401, 'Authentication is required.');
   return { ...request.auth, tenantId: request.auth.tenantId };
+}
+
+function context(request: Request): RequestContext {
+  const userAgent = request.headers['user-agent'];
+  return {
+    ...(request.ip ? { ip: request.ip } : {}),
+    ...(typeof request.id === 'string' || typeof request.id === 'number'
+      ? { requestId: String(request.id) }
+      : {}),
+    ...(typeof userAgent === 'string' ? { userAgent } : {})
+  };
 }
 
 function idempotencyKey(request: Request, scope: string, tenantId: string): string {
@@ -220,6 +236,152 @@ export function createAiRouter(
       next(error);
     }
   });
+
+  router.post(
+    '/tests/generate',
+    createRequirePermission(authService, 'tests:manage'),
+    validate(generateTestSchema),
+    async (request, response, next) => {
+      try {
+        const auth = principal(request);
+        const body = request.body as GenerateTestInput;
+
+        const result = await aiService.generate<AiQuestionOutput>({
+          tenantId: auth.tenantId,
+          actorId: auth.userId,
+          purpose: AIExecutionPurpose.QUESTION_GENERATION,
+          configurationKey: QUESTION_GENERATION_CONFIGURATION_KEY,
+          capability: 'structured_output',
+          messages: [
+            { role: 'system', content: questionGenerationSystemPrompt },
+            {
+              role: 'user',
+              content: buildQuestionGenerationPrompt({
+                topic: body.topic,
+                count: body.questionCount,
+                difficulty: body.difficulty,
+                ...(body.types ? { types: body.types } : {}),
+                ...(body.instructions ? { instructions: body.instructions } : {})
+              })
+            }
+          ],
+          outputSchema: questionGenerationOutputSchema,
+          validateOutput: validateGenerationOutput,
+          idempotencyKey: idempotencyKey(request, 'test-generation', auth.tenantId),
+          sourceType: 'test_generation'
+        });
+
+        const allowed: readonly AiQuestionType[] = body.types?.length ? body.types : ['mcq'];
+        const rawItems = result.output.questions;
+        const parsed = rawItems.map((item) => draftToQuestionCore(item));
+
+        const historyRows = await upsertGenerationDrafts(
+          prisma,
+          auth.tenantId,
+          result.executionId,
+          parsed.map((draft, index) => ({
+            draftIndex: index,
+            request: {
+              topic: body.topic,
+              difficulty: body.difficulty,
+              count: body.questionCount,
+              types: body.types ?? null,
+              instructions: body.instructions ?? null
+            } as Prisma.InputJsonValue,
+            validationResult: (draft
+              ? { valid: true, type: draft.type }
+              : { valid: false }) as Prisma.InputJsonValue
+          }))
+        );
+
+        const questionInputs: Array<{ input: QuestionInput; historyId: string }> = [];
+        parsed.forEach((draft, index) => {
+          if (!draft || !allowed.includes(draft.type)) return;
+          const candidate = questionSchema.safeParse({
+            title: draft.title,
+            type: draft.type,
+            categoryId: body.categoryId,
+            subCategoryId: body.subCategoryId ?? null,
+            difficulty: body.difficulty,
+            marks: body.marks,
+            negativeMarks: 0,
+            explanation: draft.explanation,
+            trainingLink: '',
+            tags: ['ai-generated'],
+            content: draft.content
+          });
+          if (candidate.success) {
+            questionInputs.push({
+              input: candidate.data,
+              historyId: historyRows[index]?.historyId ?? ''
+            });
+          }
+        });
+
+        if (questionInputs.length === 0) {
+          throw new ApiError(
+            422,
+            'The AI could not produce valid questions for this topic. Try rephrasing it or choosing a different question type.'
+          );
+        }
+
+        const questionIds: string[] = [];
+        for (const { input, historyId } of questionInputs) {
+          const record = await createQuestion(
+            prisma,
+            auth.tenantId,
+            auth.userId,
+            input,
+            async (transaction, _createdQuestion, version) => {
+              if (!historyId) return;
+              await linkGenerationDecision(transaction, {
+                tenantId: auth.tenantId,
+                historyId,
+                generatedQuestionVersionId: version.id,
+                decidedById: auth.userId
+              });
+            }
+          );
+          questionIds.push(record.id);
+        }
+
+        const testInput = testSchema.parse({
+          title: (body.title || `AI Test: ${body.topic}`).slice(0, 200),
+          description: `Auto-generated from the topic "${body.topic}".`.slice(0, 2000),
+          categoryId: body.categoryId,
+          subCategoryId: body.subCategoryId ?? null,
+          difficulty: body.difficulty,
+          mode: 'fixed',
+          questionIds,
+          settings: {
+            ...(body.passingPercentage !== undefined
+              ? { passingPercentage: body.passingPercentage }
+              : {}),
+            ...(body.timeLimitMin !== undefined ? { timeLimitMin: body.timeLimitMin } : {})
+          }
+        });
+        const test = await createDraftTest(
+          prisma,
+          authService,
+          auth.tenantId,
+          auth.userId,
+          testInput,
+          context(request)
+        );
+
+        response.status(201).json({
+          success: true,
+          data: {
+            testId: test.id,
+            questionCount: questionIds.length,
+            message: `Draft test created with ${questionIds.length} question(s).`
+          }
+        });
+      } catch (error) {
+        next(error);
+      }
+    }
+  );
 
   return router;
 }

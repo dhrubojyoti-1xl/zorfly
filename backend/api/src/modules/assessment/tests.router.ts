@@ -642,6 +642,79 @@ async function ledTeamIds(
   return rows.map((row) => row.teamId);
 }
 
+export async function createDraftTest(
+  prisma: ZorflyPrismaClient,
+  service: AuthService,
+  tenantId: string,
+  userId: string,
+  input: TestInput,
+  requestContext: RequestContext
+): Promise<{ id: string }> {
+  await enforceTestLimit(prisma, tenantId);
+  const [taxonomy, questions] = await Promise.all([
+    resolveTaxonomy(prisma, tenantId, input),
+    resolveQuestions(prisma, tenantId, input.mode === 'fixed' ? input.questionIds : [])
+  ]);
+  const record = await prisma.$transaction(async (transaction) => {
+    const assessment = await transaction.assessmentDefinition.create({
+      data: {
+        tenantId,
+        categoryId: taxonomy.categoryId,
+        difficultyLevelId: taxonomy.difficultyLevelId,
+        code: assessmentCode(),
+        title: input.title,
+        description: input.description,
+        status: AssessmentStatus.DRAFT,
+        createdById: userId
+      }
+    });
+    const version = await transaction.assessmentVersion.create({
+      data: {
+        tenantId,
+        assessmentId: assessment.id,
+        versionNumber: 1,
+        status: VersionStatus.DRAFT,
+        title: input.title,
+        description: input.description,
+        totalMarks: 0,
+        passingMarks: 0,
+        durationSeconds: input.settings.timeLimitMin > 0 ? input.settings.timeLimitMin * 60 : null,
+        perQuestionTimeLimit:
+          input.settings.timeLimitPerQuestionSec > 0
+            ? input.settings.timeLimitPerQuestionSec
+            : null,
+        maxAttempts: input.settings.attemptsAllowed,
+        negativeMarkingEnabled: input.settings.negativeMarking,
+        shuffleQuestions: input.settings.shuffleQuestions,
+        shuffleOptions: input.settings.shuffleOptions,
+        antiCheatingPolicy: input.settings.antiCheat,
+        configuration: configuration(input),
+        contentHash: createHash('sha256')
+          .update(JSON.stringify({ assessmentId: assessment.id, draft: 1, input }))
+          .digest('hex'),
+        createdById: userId
+      }
+    });
+    await writeDraftContent(transaction, tenantId, version.id, input, questions);
+    await transaction.assessmentDefinition.update({
+      where: { id: assessment.id },
+      data: { currentVersionId: version.id }
+    });
+    return assessment;
+  });
+  await service.recordAudit(
+    {
+      action: 'test.created',
+      actorUserId: userId,
+      tenantId,
+      entityType: 'assessment',
+      entityId: record.id
+    },
+    requestContext
+  );
+  return { id: record.id };
+}
+
 export function createTestRouter(
   prisma: ZorflyPrismaClient,
   service: AuthService,
@@ -743,67 +816,12 @@ export function createTestRouter(
     async (request, response) => {
       const auth = principal(request);
       const input = testSchema.parse(request.body);
-      await enforceTestLimit(prisma, auth.tenantId);
-      const [taxonomy, questions] = await Promise.all([
-        resolveTaxonomy(prisma, auth.tenantId, input),
-        resolveQuestions(prisma, auth.tenantId, input.mode === 'fixed' ? input.questionIds : [])
-      ]);
-      const record = await prisma.$transaction(async (transaction) => {
-        const assessment = await transaction.assessmentDefinition.create({
-          data: {
-            tenantId: auth.tenantId,
-            categoryId: taxonomy.categoryId,
-            difficultyLevelId: taxonomy.difficultyLevelId,
-            code: assessmentCode(),
-            title: input.title,
-            description: input.description,
-            status: AssessmentStatus.DRAFT,
-            createdById: auth.userId
-          }
-        });
-        const version = await transaction.assessmentVersion.create({
-          data: {
-            tenantId: auth.tenantId,
-            assessmentId: assessment.id,
-            versionNumber: 1,
-            status: VersionStatus.DRAFT,
-            title: input.title,
-            description: input.description,
-            totalMarks: 0,
-            passingMarks: 0,
-            durationSeconds:
-              input.settings.timeLimitMin > 0 ? input.settings.timeLimitMin * 60 : null,
-            perQuestionTimeLimit:
-              input.settings.timeLimitPerQuestionSec > 0
-                ? input.settings.timeLimitPerQuestionSec
-                : null,
-            maxAttempts: input.settings.attemptsAllowed,
-            negativeMarkingEnabled: input.settings.negativeMarking,
-            shuffleQuestions: input.settings.shuffleQuestions,
-            shuffleOptions: input.settings.shuffleOptions,
-            antiCheatingPolicy: input.settings.antiCheat,
-            configuration: configuration(input),
-            contentHash: createHash('sha256')
-              .update(JSON.stringify({ assessmentId: assessment.id, draft: 1, input }))
-              .digest('hex'),
-            createdById: auth.userId
-          }
-        });
-        await writeDraftContent(transaction, auth.tenantId, version.id, input, questions);
-        await transaction.assessmentDefinition.update({
-          where: { id: assessment.id },
-          data: { currentVersionId: version.id }
-        });
-        return assessment;
-      });
-      await service.recordAudit(
-        {
-          action: 'test.created',
-          actorUserId: auth.userId,
-          tenantId: auth.tenantId,
-          entityType: 'assessment',
-          entityId: record.id
-        },
+      const record = await createDraftTest(
+        prisma,
+        service,
+        auth.tenantId,
+        auth.userId,
+        input,
         context(request)
       );
       response.status(201).json({

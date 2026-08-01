@@ -537,4 +537,61 @@ integration('AI question-generation HTTP routes (PostgreSQL-backed)', () => {
     },
     30_000
   );
+
+  it('rejects test generation for users without tests:manage', async () => {
+    await request(app)
+      .post('/api/v1/ai/tests/generate')
+      .set('authorization', employeeAuthorization)
+      .send({
+        topic: 'Customer service tone and etiquette',
+        types: ['mcq'],
+        questionCount: 1,
+        categoryId: tenantACategoryId,
+        difficulty: 'fresher'
+      })
+      .expect(403);
+  });
+
+  it('generates questions, persists them, and bundles them into a draft fixed test', async () => {
+    if (!prisma) throw new Error('TEST_DATABASE_URL is required.');
+    const response = await request(app)
+      .post('/api/v1/ai/tests/generate')
+      .set('authorization', tenantAAuthorization)
+      .set('idempotency-key', `router-test-generate-${randomUUID()}`)
+      .send({
+        topic: 'Customer service tone and etiquette',
+        types: ['mcq'],
+        questionCount: 1,
+        categoryId: tenantACategoryId,
+        difficulty: 'fresher',
+        marks: 2
+      })
+      .expect(201);
+    const body = response.body as {
+      data: { testId: string; questionCount: number; message: string };
+    };
+    expect(body.data.questionCount).toBe(1);
+    expect(body.data.testId).toMatch(historyIdPattern);
+
+    const assessment = await prisma.assessmentDefinition.findUniqueOrThrow({
+      where: { id: body.data.testId },
+      include: {
+        currentVersion: { include: { questions: true } }
+      }
+    });
+    expect(assessment.tenantId).toBe(tenantAId);
+    expect(assessment.status).toBe('DRAFT');
+    expect(assessment.currentVersion?.questions).toHaveLength(1);
+
+    const linked = await prisma.questionGenerationHistory.findFirst({
+      where: {
+        tenantId: tenantAId,
+        generatedQuestionVersionId: {
+          in: assessment.currentVersion?.questions.map((q) => q.questionVersionId) ?? []
+        }
+      }
+    });
+    expect(linked).not.toBeNull();
+    expect(linked?.humanDecision).toBe('accepted');
+  }, 30_000);
 });
