@@ -253,6 +253,10 @@ enum LearningContentType {
   BRAND_GUIDE
   CHECKLIST
   EXTERNAL_LINK
+  STUDY_GUIDE
+  SUMMARY
+  FLASHCARDS
+  PRACTICE_QUIZ
 
   @@schema("learning")
 }
