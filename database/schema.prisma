@@ -1550,6 +1550,7 @@ model AssessmentDefinition {
   currentVersion    AssessmentVersion?   @relation("CurrentAssessmentVersion", fields: [currentVersionId], references: [id], onDelete: Restrict)
   versions          AssessmentVersion[]  @relation("AssessmentVersions")
   schedules         AssessmentSchedule[]
+  certificates      Certificate[]
 
   @@unique([tenantId, code])
   @@index([tenantId, status, categoryId, deletedAt])
@@ -2239,6 +2240,7 @@ model Certificate {
   membershipId             String                  @db.Uuid
   learningPathAssignmentId String?                 @db.Uuid
   assessmentAttemptId      BigInt?
+  assessmentId             String?                 @db.Uuid
   verificationCode         String                  @unique @db.VarChar(80)
   status                   CertificateStatus       @default(ISSUED)
   issuedAt                 DateTime                @db.Timestamptz(6)
@@ -2251,7 +2253,9 @@ model Certificate {
   membership               TenantMembership        @relation(fields: [membershipId], references: [id], onDelete: Restrict)
   learningPathAssignment   LearningPathAssignment? @relation(fields: [learningPathAssignmentId], references: [id], onDelete: Restrict)
   assessmentAttempt        AssessmentAttempt?      @relation(fields: [assessmentAttemptId], references: [id], onDelete: Restrict)
+  assessment               AssessmentDefinition?   @relation(fields: [assessmentId], references: [id], onDelete: Restrict)
 
+  @@unique([tenantId, membershipId, assessmentId])
   @@index([tenantId, membershipId, status, issuedAt])
   @@index([tenantId, expiresAt])
   @@schema("learning")
@@ -2518,6 +2522,7 @@ model BadgeAward {
   badge        BadgeDefinition  @relation(fields: [badgeId], references: [id], onDelete: Restrict)
   membership   TenantMembership @relation(fields: [membershipId], references: [id], onDelete: Restrict)
 
+  @@unique([tenantId, badgeId, membershipId])
   @@index([tenantId, membershipId, awardedAt])
   @@index([tenantId, badgeId, revokedAt])
   @@schema("engagement")

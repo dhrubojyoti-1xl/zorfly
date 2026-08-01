@@ -21,6 +21,7 @@ import type { RequestContext, SessionPrincipal } from '../auth/auth.types.js';
 import type { TokenService } from '../auth/tokens.js';
 import { scoreAttempt, type ScorableQuestion } from './scoring.js';
 import { sanitizeQuestionContent } from './tests.router.js';
+import { evaluateRewards, issueCertificateIfPassed } from '../engagement/rewards.service.js';
 
 const startSchema = z.object({ testId: z.uuid() });
 const answerSchema = z.object({
@@ -741,6 +742,32 @@ export function createAttemptRouter(
           }
         });
       }
+    });
+    await evaluateRewards(prisma, service, {
+      tenantId: auth.tenantId,
+      membershipId: membership.id,
+      attemptPublicId: attempt.publicId,
+      mode: attempt.mode,
+      percentage: scores.percentage,
+      passed,
+      detectionRate: scores.detectionRate,
+      userEmail: membership.user.emailCanonical,
+      userName: membership.user.displayName ?? null
+    }).catch((error: unknown) => {
+      request.log.error({ error }, 'Reward evaluation failed');
+    });
+    await issueCertificateIfPassed(prisma, {
+      tenantId: auth.tenantId,
+      membershipId: membership.id,
+      attemptId: attempt.id,
+      assessmentId: version.assessment.id,
+      assessmentTitle: version.assessment.title,
+      employeeName: membership.user.displayName ?? membership.user.emailCanonical,
+      percentage: scores.percentage,
+      passed,
+      mode: attempt.mode
+    }).catch((error: unknown) => {
+      request.log.error({ error }, 'Certificate issuance failed');
     });
     service.sendNotification({
       to: membership.user.emailCanonical,

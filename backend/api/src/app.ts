@@ -34,6 +34,9 @@ import { createLearningRouter } from './modules/learning/learning.router.js';
 import { createStudyRouter } from './modules/learning/study.router.js';
 import { createPathsRouter } from './modules/learning/paths.router.js';
 import { createNotificationsRouter } from './modules/communications/notifications.router.js';
+import { createBadgeRouter } from './modules/engagement/badges.router.js';
+import { createLeaderboardRouter } from './modules/engagement/leaderboard.router.js';
+import { createCertificateRouter } from './modules/engagement/certificates.router.js';
 
 export interface AppOptions {
   environment: ApiEnvironment;
@@ -130,6 +133,15 @@ export function createApp({ environment, version, auth, organization, ai }: AppO
         createReviewRouter(organization.prisma, auth.service, auth.tokens)
       );
       app.use('/api/v1/notifications', createNotificationsRouter(organization.prisma, auth.tokens));
+      app.use('/api/v1/badges', createBadgeRouter(organization.prisma, auth.service, auth.tokens));
+      app.use(
+        '/api/v1/leaderboard',
+        createLeaderboardRouter(organization.prisma, auth.service, auth.tokens)
+      );
+      app.use(
+        '/api/v1/certificates',
+        createCertificateRouter(organization.prisma, auth.service, auth.tokens)
+      );
       if (ai) {
         app.use(
           '/api/v1/ai',
