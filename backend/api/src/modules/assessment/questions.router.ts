@@ -249,7 +249,15 @@ export async function createQuestion(
     transaction: Prisma.TransactionClient,
     question: { id: string },
     version: { id: string }
-  ) => Promise<void>
+  ) => Promise<void>,
+  /**
+   * Defaults to PUBLISHED (manual authoring is unchanged). AI-generated
+   * questions are created IN_REVIEW instead — an admin must call
+   * POST /questions/:id/publish before they appear in the question bank
+   * or can be added to a test. The question's answer schema, scoring, and
+   * every other field are unaffected either way.
+   */
+  status: (typeof QuestionStatus)[keyof typeof QuestionStatus] = QuestionStatus.PUBLISHED
 ) {
   const references = await resolveReferences(prisma, tenantId, input);
   return prisma.$transaction(async (transaction) => {
@@ -260,7 +268,7 @@ export async function createQuestion(
         difficultyLevelId: references.difficultyLevelId,
         code: questionCode(),
         title: input.title,
-        status: QuestionStatus.PUBLISHED,
+        status,
         createdById: userId
       }
     });
@@ -360,9 +368,13 @@ export function createQuestionRouter(
     const type = queryString(request.query.type);
     const categoryId = queryString(request.query.categoryId);
     const difficulty = queryString(request.query.difficulty);
+    const statusFilter =
+      queryString(request.query.status) === 'in_review'
+        ? QuestionStatus.IN_REVIEW
+        : QuestionStatus.PUBLISHED;
     const where = {
       tenantId: auth.tenantId,
-      status: QuestionStatus.PUBLISHED,
+      status: statusFilter,
       deletedAt: null,
       ...(search ? { title: { contains: search, mode: 'insensitive' as const } } : {}),
       ...(type ? { currentVersion: { questionType: { key: type } } } : {}),
@@ -405,7 +417,8 @@ export function createQuestionRouter(
             difficulty: compatible.difficulty,
             marks: compatible.marks,
             negativeMarks: compatible.negativeMarks,
-            createdAt: compatible.createdAt
+            createdAt: compatible.createdAt,
+            reviewStatus: question.status === QuestionStatus.IN_REVIEW ? 'in_review' : 'published'
           };
         }),
         totalCount,
@@ -734,6 +747,47 @@ export function createQuestionRouter(
       response.json({
         success: true,
         data: { message: 'Question deleted successfully.' }
+      });
+    }
+  );
+
+  router.post(
+    '/:id/publish',
+    createRequirePermission(service, 'questions:manage'),
+    async (request, response) => {
+      const auth = principal(request);
+      const id = uuid.parse(request.params.id);
+      const question = await prisma.question.findFirst({
+        where: { id, tenantId: auth.tenantId, deletedAt: null }
+      });
+      if (!question) throw new ApiError(404, 'The requested question was not found.');
+      if (
+        question.status !== QuestionStatus.IN_REVIEW &&
+        question.status !== QuestionStatus.DRAFT
+      ) {
+        throw new ApiError(422, 'Only questions awaiting review can be published.');
+      }
+      await prisma.question.update({
+        where: { id },
+        data: {
+          status: QuestionStatus.PUBLISHED,
+          updatedById: auth.userId,
+          rowVersion: { increment: 1 }
+        }
+      });
+      await service.recordAudit(
+        {
+          action: 'question.published',
+          actorUserId: auth.userId,
+          tenantId: auth.tenantId,
+          entityType: 'question',
+          entityId: id
+        },
+        context(request)
+      );
+      response.json({
+        success: true,
+        data: { id, message: 'Question published to the question bank.' }
       });
     }
   );

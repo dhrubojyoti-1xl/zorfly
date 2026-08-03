@@ -26,17 +26,20 @@ export default function Questions() {
   const [typeFilter, setTypeFilter] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('');
   const [difficultyFilter, setDifficultyFilter] = useState('');
+  const [reviewFilter, setReviewFilter] = useState('');
   const [categories, setCategories] = useState([]);
   const list = useList('/questions', {
     ...(typeFilter ? { type: typeFilter } : {}),
     ...(categoryFilter ? { categoryId: categoryFilter } : {}),
-    ...(difficultyFilter ? { difficulty: difficultyFilter } : {})
+    ...(difficultyFilter ? { difficulty: difficultyFilter } : {}),
+    ...(reviewFilter ? { status: reviewFilter } : {})
   });
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [deleting, setDeleting] = useState(false);
   const importInputRef = useRef(null);
   const [importing, setImporting] = useState(false);
   const [aiOpen, setAiOpen] = useState(false);
+  const [publishingId, setPublishingId] = useState(null);
 
   useEffect(() => {
     api
@@ -78,6 +81,19 @@ export default function Questions() {
       toast.show(apiError(error).message, 'error');
     } finally {
       setDeleting(false);
+    }
+  };
+
+  const handlePublish = async (row) => {
+    setPublishingId(row.id);
+    try {
+      const response = await api.post(`/questions/${row.id}/publish`);
+      toast.show(response.data.data.message, 'success');
+      await list.load();
+    } catch (error) {
+      toast.show(apiError(error).message, 'error');
+    } finally {
+      setPublishingId(null);
     }
   };
 
@@ -199,6 +215,20 @@ export default function Questions() {
             </option>
           ))}
         </select>
+        {canWrite && (
+          <select
+            className="field-input filter-select"
+            value={reviewFilter}
+            onChange={(event) => {
+              setReviewFilter(event.target.value);
+              list.setPage(1);
+            }}
+            title="AI-generated questions wait here until an admin approves them"
+          >
+            <option value="">Published questions</option>
+            <option value="in_review">Pending review (AI-generated)</option>
+          </select>
+        )}
       </div>
 
       <DataTable
@@ -217,7 +247,14 @@ export default function Questions() {
         renderRow={(row, serial) => (
           <tr key={row.id}>
             <td className="col-serial">{serial}</td>
-            <td className="cell-wrap">{row.title}</td>
+            <td className="cell-wrap">
+              {row.title}
+              {row.reviewStatus === 'in_review' && (
+                <span className="test-status-badge test-status-draft" style={{ marginLeft: 8 }}>
+                  Pending review
+                </span>
+              )}
+            </td>
             <td>{TYPE_LABELS[row.type] || row.type}</td>
             <td className="cell-wrap">{row.category}</td>
             <td>{DIFFICULTY_LABELS[row.difficulty] || row.difficulty}</td>
@@ -225,6 +262,16 @@ export default function Questions() {
             {canWrite && (
               <td className="col-action">
                 <span className="action-group">
+                  {row.reviewStatus === 'in_review' && (
+                    <Button
+                      variant="secondary"
+                      onClick={() => handlePublish(row)}
+                      disabled={publishingId === row.id}
+                      title="Approve this AI-generated question and add it to the question bank"
+                    >
+                      {publishingId === row.id ? 'Publishing…' : 'Publish'}
+                    </Button>
+                  )}
                   <button
                     type="button"
                     className="icon-btn"

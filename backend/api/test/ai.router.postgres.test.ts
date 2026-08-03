@@ -594,4 +594,86 @@ integration('AI question-generation HTTP routes (PostgreSQL-backed)', () => {
     expect(linked).not.toBeNull();
     expect(linked?.humanDecision).toBe('accepted');
   }, 30_000);
+
+  it('saves AI-generated questions as pending review, hidden from the bank until an admin publishes them', async () => {
+    if (!prisma) throw new Error('TEST_DATABASE_URL is required.');
+    const title = `Pending review question ${randomUUID()}`;
+    const saved = await request(app)
+      .post('/api/v1/ai/questions/save')
+      .set('authorization', tenantAAuthorization)
+      .send({
+        questions: [
+          {
+            title,
+            type: 'true_false',
+            categoryId: tenantACategoryId,
+            subCategoryId: null,
+            difficulty: 'fresher',
+            marks: 1,
+            negativeMarks: 0,
+            explanation: '',
+            trainingLink: '',
+            tags: [],
+            content: { correctAnswer: true }
+          }
+        ]
+      })
+      .expect(201);
+    const savedBody = saved.body as { data: { created: number } };
+    expect(savedBody.data.created).toBe(1);
+
+    const record = await prisma.question.findFirstOrThrow({
+      where: { tenantId: tenantAId, title }
+    });
+    const questionId = record.id;
+    expect(record.status).toBe('IN_REVIEW');
+
+    const publishedList = await request(app)
+      .get('/api/v1/questions')
+      .set('authorization', tenantAAuthorization)
+      .query({ search: title })
+      .expect(200);
+    expect(
+      (publishedList.body as { data: { rows: Array<{ id: string }> } }).data.rows.some(
+        (row) => row.id === questionId
+      )
+    ).toBe(false);
+
+    const pendingList = await request(app)
+      .get('/api/v1/questions')
+      .set('authorization', tenantAAuthorization)
+      .query({ status: 'in_review', search: title })
+      .expect(200);
+    const pendingRow = (
+      pendingList.body as {
+        data: { rows: Array<{ id: string; reviewStatus: string }> };
+      }
+    ).data.rows.find((row) => row.id === questionId);
+    expect(pendingRow?.reviewStatus).toBe('in_review');
+
+    await request(app)
+      .post(`/api/v1/questions/${questionId}/publish`)
+      .set('authorization', tenantAAuthorization)
+      .expect(200);
+
+    const afterPublish = await prisma.question.findUniqueOrThrow({ where: { id: questionId } });
+    expect(afterPublish.status).toBe('PUBLISHED');
+
+    const nowPublishedList = await request(app)
+      .get('/api/v1/questions')
+      .set('authorization', tenantAAuthorization)
+      .query({ search: title })
+      .expect(200);
+    expect(
+      (nowPublishedList.body as { data: { rows: Array<{ id: string }> } }).data.rows.some(
+        (row) => row.id === questionId
+      )
+    ).toBe(true);
+
+    // Publishing again must fail — the question is no longer in review.
+    await request(app)
+      .post(`/api/v1/questions/${questionId}/publish`)
+      .set('authorization', tenantAAuthorization)
+      .expect(422);
+  });
 });
