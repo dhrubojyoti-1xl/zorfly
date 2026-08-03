@@ -29,6 +29,7 @@ import { createAttemptRouter } from './modules/assessment/attempts.router.js';
 import { createScheduleRouter } from './modules/assessment/schedules.router.js';
 import { createReviewRouter } from './modules/assessment/reviews.router.js';
 import { createAiRouter } from './modules/ai/ai.router.js';
+import { createAiEvaluationRouter } from './modules/ai/evaluation.router.js';
 import type { AiExecutionService } from './modules/ai/ai.service.js';
 import { createLearningRouter } from './modules/learning/learning.router.js';
 import { createStudyRouter } from './modules/learning/study.router.js';
@@ -177,6 +178,14 @@ export function createApp({ environment, version, auth, organization, ai }: AppO
         createBillingRouter(organization.prisma, auth.service, auth.tokens)
       );
       if (ai) {
+        // More specific /api/v1/ai/* sub-routers must be registered before
+        // the general /api/v1/ai router below — app.use() matches by path
+        // prefix, so /api/v1/ai would otherwise intercept these requests
+        // first and apply its own (wrong) questions:manage permission gate.
+        app.use(
+          '/api/v1/ai/evaluations',
+          createAiEvaluationRouter(organization.prisma, auth.service, auth.tokens, ai.service)
+        );
         app.use(
           '/api/v1/ai',
           createAiRouter(organization.prisma, auth.service, auth.tokens, ai.service)

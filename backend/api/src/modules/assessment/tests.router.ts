@@ -239,7 +239,12 @@ async function enforceTestLimit(prisma: ZorflyPrismaClient, tenantId: string): P
   const entitlement = subscription?.plan.entitlements.find((candidate) =>
     ['tests', 'tests.max', 'max_tests'].includes(candidate.featureKey)
   );
-  if (!entitlement?.enabled || entitlement.limitValue === null) return;
+  // limitValue === null or a negative value both mean "unlimited" — the
+  // same -1 convention billing.router.ts already uses for its default
+  // maxTests/maxEmployees limits.
+  if (!entitlement?.enabled || entitlement.limitValue === null || entitlement.limitValue < 0n) {
+    return;
+  }
   const count = await prisma.assessmentDefinition.count({
     where: { tenantId, deletedAt: null }
   });

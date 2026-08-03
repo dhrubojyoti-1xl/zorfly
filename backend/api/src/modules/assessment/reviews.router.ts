@@ -75,9 +75,13 @@ const attemptInclude = {
   }
 } satisfies Prisma.AssessmentAttemptInclude;
 
-type ReviewAttempt = Prisma.AssessmentAttemptGetPayload<{ include: typeof attemptInclude }>;
+export type ReviewAttempt = Prisma.AssessmentAttemptGetPayload<{ include: typeof attemptInclude }>;
 
-async function reviewerMembership(prisma: ZorflyPrismaClient, tenantId: string, userId: string) {
+export async function reviewerMembership(
+  prisma: ZorflyPrismaClient,
+  tenantId: string,
+  userId: string
+) {
   const membership = await prisma.tenantMembership.findFirst({
     where: { tenantId, userId, status: MembershipStatus.ACTIVE, deletedAt: null }
   });
@@ -85,7 +89,7 @@ async function reviewerMembership(prisma: ZorflyPrismaClient, tenantId: string, 
   return membership;
 }
 
-async function findReviewAttempt(
+export async function findReviewAttempt(
   prisma: ZorflyPrismaClient,
   tenantId: string,
   publicId: string
@@ -94,6 +98,173 @@ async function findReviewAttempt(
     where: { tenantId, publicId, status: AttemptStatus.NEEDS_REVIEW },
     include: attemptInclude
   });
+}
+
+export interface ApplyManualScoreInput {
+  auth: SessionPrincipal & { tenantId: string };
+  reviewer: { id: string };
+  attempt: ReviewAttempt;
+  targetQuestionId: string;
+  obtained: number;
+  /** Defaults to 'attempt.reviewed' — pass a distinct action when the caller is the AI-evaluation decision endpoint. */
+  auditAction?: string;
+  auditMetadataExtra?: Record<string, unknown>;
+}
+
+export interface ApplyManualScoreResult {
+  obtained: number;
+  percentage: number;
+  pendingReview: boolean;
+  message: string;
+}
+
+/**
+ * Applies a human-decided score to one pending attempt question: updates
+ * the attempt question, its manual review record, the attempt's aggregate
+ * score/status, and (once every pending question is resolved) the
+ * assignment status, notification, and audit log. Shared by the plain
+ * manual-review endpoint below and by the AI-evaluation decision endpoint
+ * in evaluation.router.ts, so "a human decided this score" always goes
+ * through one code path regardless of whether an AI suggestion preceded it.
+ */
+export async function applyManualScore(
+  prisma: ZorflyPrismaClient,
+  service: AuthService,
+  requestContext: RequestContext,
+  input: ApplyManualScoreInput
+): Promise<ApplyManualScoreResult> {
+  const { auth, reviewer, attempt, targetQuestionId } = input;
+  const attemptQuestion = attempt.questions.find(
+    (question) =>
+      question.questionVersion.questionId === targetQuestionId &&
+      question.status === EvaluationStatus.NEEDS_REVIEW
+  );
+  if (!attemptQuestion) throw new ApiError(404, 'This question is not awaiting review.');
+  const max = Number(attemptQuestion.maxMarks);
+  if (input.obtained > max) {
+    throw new ApiError(422, `Marks must not exceed the question maximum of ${String(max)}.`, {
+      obtained: `Marks must not exceed ${String(max)}.`
+    });
+  }
+  const obtainedRounded = Math.round(input.obtained * 100) / 100;
+  const reviewedAt = new Date();
+
+  const summary = object(attempt.resultSummary);
+  const perQuestion = array(summary.perQuestion);
+  const updatedPerQuestion = perQuestion.map((entry) =>
+    String(entry.questionId) === targetQuestionId
+      ? {
+          ...entry,
+          obtained: obtainedRounded,
+          pendingReview: false,
+          fullMarks: obtainedRounded >= max,
+          reviewedByMembershipId: reviewer.id
+        }
+      : entry
+  );
+  const obtained =
+    Math.round(updatedPerQuestion.reduce((sum, entry) => sum + number(entry.obtained), 0) * 100) /
+    100;
+  const totalMax = updatedPerQuestion.reduce((sum, entry) => sum + number(entry.max), 0);
+  const attempted = updatedPerQuestion.filter((entry) => entry.attempted === true).length;
+  const fullMarksCount = updatedPerQuestion.filter((entry) => entry.fullMarks === true).length;
+  const stillPending = updatedPerQuestion.some((entry) => entry.pendingReview === true);
+  const percentage = totalMax > 0 ? Math.round((obtained / totalMax) * 10_000) / 100 : 0;
+  const accuracy = attempted > 0 ? Math.round((fullMarksCount / attempted) * 10_000) / 100 : 0;
+  const passingPercentage = number(
+    object(attempt.assignment?.assessmentVersion.configuration).passingPercentage,
+    50
+  );
+  const passed = percentage >= passingPercentage;
+  const nextStatus = stillPending ? AttemptStatus.NEEDS_REVIEW : AttemptStatus.PUBLISHED;
+
+  const latestReview = attemptQuestion.manualReviews[0];
+
+  await prisma.$transaction(async (transaction) => {
+    await transaction.attemptQuestion.update({
+      where: { id: attemptQuestion.id },
+      data: {
+        score: obtainedRounded,
+        status: EvaluationStatus.SCORED,
+        rowVersion: { increment: 1 }
+      }
+    });
+    if (latestReview) {
+      await transaction.manualReview.update({
+        where: { id: latestReview.id },
+        data: {
+          status: ManualReviewStatus.COMPLETED,
+          score: obtainedRounded,
+          reviewerMembershipId: reviewer.id,
+          completedAt: reviewedAt,
+          rowVersion: { increment: 1 }
+        }
+      });
+    }
+    await transaction.assessmentAttempt.update({
+      where: { id: attempt.id },
+      data: {
+        status: nextStatus,
+        finalScore: obtained,
+        rawScore: obtained,
+        percentage,
+        passed,
+        publishedAt: stillPending ? null : reviewedAt,
+        resultSummary: {
+          ...summary,
+          perQuestion: updatedPerQuestion,
+          accuracy,
+          pendingReview: stillPending,
+          pendingReviewCount: updatedPerQuestion.filter((entry) => entry.pendingReview === true)
+            .length
+        } as unknown as Prisma.InputJsonObject,
+        rowVersion: { increment: 1 }
+      }
+    });
+    if (!stillPending && attempt.assignmentId) {
+      await transaction.assessmentAssignment.update({
+        where: { id: attempt.assignmentId },
+        data: {
+          status: AssignmentStatus.COMPLETED,
+          completedAt: reviewedAt,
+          rowVersion: { increment: 1 }
+        }
+      });
+    }
+  });
+
+  if (!stillPending && attempt.membership) {
+    const reviewedTitle = attempt.assignment?.assessmentVersion.assessment.title ?? 'Test';
+    service.sendNotification({
+      to: attempt.membership.user.emailCanonical,
+      subject: `Result published: ${reviewedTitle}`,
+      html: `<p>Your typed answers have been reviewed. Final score: ${String(obtained)}/${String(totalMax)} (${String(percentage)}%) — ${passed ? 'passed' : 'not passed'}.</p>`,
+      type: 'result_published',
+      tenantId: auth.tenantId,
+      membershipId: attempt.membership.id,
+      title: `Result published: ${reviewedTitle}`,
+      body: `Your typed answers have been reviewed. Final score: ${String(obtained)}/${String(totalMax)} (${String(percentage)}%) — ${passed ? 'passed' : 'not passed'}.`,
+      link: `/app/results/${attempt.publicId}`
+    });
+    await service.recordAudit(
+      {
+        action: input.auditAction ?? 'attempt.reviewed',
+        actorUserId: auth.userId,
+        tenantId: auth.tenantId,
+        entityType: 'assessment_attempt',
+        entityId: attempt.publicId,
+        metadata: { obtained, percentage, passed, ...(input.auditMetadataExtra ?? {}) }
+      },
+      requestContext
+    );
+  }
+
+  return {
+    obtained,
+    percentage,
+    pendingReview: stillPending,
+    message: 'Marks saved successfully.'
+  };
 }
 
 export function createReviewRouter(
@@ -185,141 +356,14 @@ export function createReviewRouter(
     );
     if (!attempt) throw new ApiError(404, 'The requested attempt was not found.');
     const input = request.body as ScoreInput;
-    const targetQuestionId = String(request.params.questionId ?? '');
-    const attemptQuestion = attempt.questions.find(
-      (question) =>
-        question.questionVersion.questionId === targetQuestionId &&
-        question.status === EvaluationStatus.NEEDS_REVIEW
-    );
-    if (!attemptQuestion) throw new ApiError(404, 'This question is not awaiting review.');
-    const max = Number(attemptQuestion.maxMarks);
-    if (input.obtained > max) {
-      throw new ApiError(422, `Marks must not exceed the question maximum of ${String(max)}.`, {
-        obtained: `Marks must not exceed ${String(max)}.`
-      });
-    }
-    const obtainedRounded = Math.round(input.obtained * 100) / 100;
-    const reviewedAt = new Date();
-
-    const summary = object(attempt.resultSummary);
-    const perQuestion = array(summary.perQuestion);
-    const updatedPerQuestion = perQuestion.map((entry) =>
-      String(entry.questionId) === targetQuestionId
-        ? {
-            ...entry,
-            obtained: obtainedRounded,
-            pendingReview: false,
-            fullMarks: obtainedRounded >= max,
-            reviewedByMembershipId: reviewer.id
-          }
-        : entry
-    );
-    const obtained =
-      Math.round(updatedPerQuestion.reduce((sum, entry) => sum + number(entry.obtained), 0) * 100) /
-      100;
-    const totalMax = updatedPerQuestion.reduce((sum, entry) => sum + number(entry.max), 0);
-    const attempted = updatedPerQuestion.filter((entry) => entry.attempted === true).length;
-    const fullMarksCount = updatedPerQuestion.filter((entry) => entry.fullMarks === true).length;
-    const stillPending = updatedPerQuestion.some((entry) => entry.pendingReview === true);
-    const percentage = totalMax > 0 ? Math.round((obtained / totalMax) * 10_000) / 100 : 0;
-    const accuracy = attempted > 0 ? Math.round((fullMarksCount / attempted) * 10_000) / 100 : 0;
-    const passingPercentage = number(
-      object(attempt.assignment?.assessmentVersion.configuration).passingPercentage,
-      50
-    );
-    const passed = percentage >= passingPercentage;
-    const nextStatus = stillPending ? AttemptStatus.NEEDS_REVIEW : AttemptStatus.PUBLISHED;
-
-    const latestReview = attemptQuestion.manualReviews[0];
-
-    await prisma.$transaction(async (transaction) => {
-      await transaction.attemptQuestion.update({
-        where: { id: attemptQuestion.id },
-        data: {
-          score: obtainedRounded,
-          status: EvaluationStatus.SCORED,
-          rowVersion: { increment: 1 }
-        }
-      });
-      if (latestReview) {
-        await transaction.manualReview.update({
-          where: { id: latestReview.id },
-          data: {
-            status: ManualReviewStatus.COMPLETED,
-            score: obtainedRounded,
-            reviewerMembershipId: reviewer.id,
-            completedAt: reviewedAt,
-            rowVersion: { increment: 1 }
-          }
-        });
-      }
-      await transaction.assessmentAttempt.update({
-        where: { id: attempt.id },
-        data: {
-          status: nextStatus,
-          finalScore: obtained,
-          rawScore: obtained,
-          percentage,
-          passed,
-          publishedAt: stillPending ? null : reviewedAt,
-          resultSummary: {
-            ...summary,
-            perQuestion: updatedPerQuestion,
-            accuracy,
-            pendingReview: stillPending,
-            pendingReviewCount: updatedPerQuestion.filter((entry) => entry.pendingReview === true)
-              .length
-          } as unknown as Prisma.InputJsonObject,
-          rowVersion: { increment: 1 }
-        }
-      });
-      if (!stillPending && attempt.assignmentId) {
-        await transaction.assessmentAssignment.update({
-          where: { id: attempt.assignmentId },
-          data: {
-            status: AssignmentStatus.COMPLETED,
-            completedAt: reviewedAt,
-            rowVersion: { increment: 1 }
-          }
-        });
-      }
+    const result = await applyManualScore(prisma, service, context(request), {
+      auth,
+      reviewer,
+      attempt,
+      targetQuestionId: String(request.params.questionId ?? ''),
+      obtained: input.obtained
     });
-
-    if (!stillPending && attempt.membership) {
-      const reviewedTitle = attempt.assignment?.assessmentVersion.assessment.title ?? 'Test';
-      service.sendNotification({
-        to: attempt.membership.user.emailCanonical,
-        subject: `Result published: ${reviewedTitle}`,
-        html: `<p>Your typed answers have been reviewed. Final score: ${String(obtained)}/${String(totalMax)} (${String(percentage)}%) — ${passed ? 'passed' : 'not passed'}.</p>`,
-        type: 'result_published',
-        tenantId: auth.tenantId,
-        membershipId: attempt.membership.id,
-        title: `Result published: ${reviewedTitle}`,
-        body: `Your typed answers have been reviewed. Final score: ${String(obtained)}/${String(totalMax)} (${String(percentage)}%) — ${passed ? 'passed' : 'not passed'}.`,
-        link: `/app/results/${attempt.publicId}`
-      });
-      await service.recordAudit(
-        {
-          action: 'attempt.reviewed',
-          actorUserId: auth.userId,
-          tenantId: auth.tenantId,
-          entityType: 'assessment_attempt',
-          entityId: attempt.publicId,
-          metadata: { obtained, percentage, passed }
-        },
-        context(request)
-      );
-    }
-
-    response.json({
-      success: true,
-      data: {
-        obtained,
-        percentage,
-        pendingReview: stillPending,
-        message: 'Marks saved successfully.'
-      }
-    });
+    response.json({ success: true, data: result });
   });
 
   return router;

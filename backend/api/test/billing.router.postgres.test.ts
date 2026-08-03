@@ -186,6 +186,30 @@ integration('Billing HTTP routes (PostgreSQL-backed)', () => {
     expect(afterFirstSubscribe).toHaveLength(1);
     expect(afterFirstSubscribe[0]?.status).toBe(SubscriptionStatus.ACTIVE);
 
+    // Regression: a plan entitlement of -1 means "unlimited" everywhere
+    // else in this codebase (see billing.router.ts's own default limits),
+    // so creating a test on this plan must succeed rather than being
+    // rejected as if -1 were a literal cap of "at most -1 tests".
+    const category = await request(app)
+      .post('/api/v1/categories')
+      .set('authorization', adminAuthorization)
+      .send({ name: `Billing Test Category ${randomUUID()}` })
+      .expect(201);
+    const categoryId = (category.body as { data: { id: string } }).data.id;
+    await request(app)
+      .post('/api/v1/tests')
+      .set('authorization', adminAuthorization)
+      .send({
+        title: `Unlimited plan test ${randomUUID()}`,
+        categoryId,
+        difficulty: 'junior',
+        mode: 'fixed',
+        questionIds: [],
+        randomConfig: null,
+        settings: {}
+      })
+      .expect(201);
+
     const catalogue = await request(app)
       .get('/api/v1/billing')
       .set('authorization', adminAuthorization)

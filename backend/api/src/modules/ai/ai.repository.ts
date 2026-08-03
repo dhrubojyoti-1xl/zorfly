@@ -134,6 +134,9 @@ export async function ensureModelConfiguration(
   });
 }
 
+export const RESPONSE_EVALUATION_CONFIGURATION_KEY = 'response-evaluation.default';
+export const REPORT_GENERATION_CONFIGURATION_KEY = 'report-generation.default';
+
 /** Enables the platform Claude key for a tenant without ever persisting the key itself. */
 export async function ensureDefaultClaudeConfiguration(
   prisma: ZorflyPrismaClient,
@@ -145,6 +148,20 @@ export async function ensureDefaultClaudeConfiguration(
     tenantId,
     key: 'question-generation.default',
     purpose: 'QUESTION_GENERATION',
+    providerKey: 'claude',
+    modelKey: 'claude-sonnet-5'
+  });
+  await ensureModelConfiguration(prisma, {
+    tenantId,
+    key: RESPONSE_EVALUATION_CONFIGURATION_KEY,
+    purpose: 'RESPONSE_EVALUATION',
+    providerKey: 'claude',
+    modelKey: 'claude-sonnet-5'
+  });
+  await ensureModelConfiguration(prisma, {
+    tenantId,
+    key: REPORT_GENERATION_CONFIGURATION_KEY,
+    purpose: 'RECOMMENDATION',
     providerKey: 'claude',
     modelKey: 'claude-sonnet-5'
   });
