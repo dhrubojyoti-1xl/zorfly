@@ -1,0 +1,245 @@
+name: Sync AI Integration
+
+# One-way export: dhrubojyoti-1xl/zorfly -> dhrubojyoti-1xl/zorfly-enterprise-integration-.
+# Only runs the export when AI/export-related paths change on main, or on
+# manual dispatch. Never pushes to the destination's protected `main` — it
+# always lands on a branch and opens/updates a PR there.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'packages/ai-core/**'
+      - 'backend/api/src/modules/ai/**'
+      - 'backend/api/test/ai.router.postgres.test.ts'
+      - 'backend/api/test/ai.service.postgres.test.ts'
+      - 'backend/api/test/openai.adapter.test.ts'
+      - 'database/ai/**'
+      - 'integration/ai-export-manifest.json'
+      - 'scripts/export-ai-integration.mjs'
+      - '.github/workflows/sync-ai-integration.yml'
+  workflow_dispatch: {}
+
+# Only one sync should ever run at a time; a newer push supersedes an
+# in-flight one rather than racing it for the same destination branch.
+concurrency:
+  group: sync-ai-integration
+  cancel-in-progress: true
+
+permissions:
+  contents: read # least privilege: this workflow only needs to read the source repo
+
+env:
+  DESTINATION_REPO: dhrubojyoti-1xl/zorfly-enterprise-integration-
+  DESTINATION_BRANCH: automation/zorfly-ai-sync
+  DESTINATION_BASE: main
+
+jobs:
+  validate-and-export:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    services:
+      postgres:
+        image: postgres:17.6-alpine
+        env:
+          POSTGRES_DB: zorfly
+          POSTGRES_PASSWORD: zorfly-ci
+          POSTGRES_USER: zorfly
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U zorfly -d zorfly" --health-interval 5s --health-timeout 5s
+          --health-retries 12
+    env:
+      DATABASE_URL: postgresql://zorfly:zorfly-ci@localhost:5432/zorfly
+      DATABASE_DIRECT_URL: postgresql://zorfly:zorfly-ci@localhost:5432/zorfly
+      TEST_DATABASE_URL: postgresql://zorfly:zorfly-ci@localhost:5432/zorfly
+    steps:
+      # Pinned to the same commit SHAs already used in .github/workflows/ci.yml
+      # for this repo, so both workflows trust the same verified action builds.
+      - name: Checkout source
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version-file: .nvmrc
+
+      - name: Enable pinned pnpm
+        run: |
+          corepack enable
+          corepack prepare pnpm@11.18.0 --activate
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Validate export manifest and scan for secrets
+        run: node scripts/export-ai-integration.mjs --check
+
+      - name: Apply database migrations
+        run: pnpm exec prisma migrate deploy
+
+      - name: Run AI-specific tests (ai-core)
+        run: pnpm --filter @zorfly/ai-core test
+
+      - name: Run AI-specific tests (api)
+        run:
+          pnpm --filter @zorfly/api exec vitest run test/ai.router.postgres.test.ts
+          test/ai.service.postgres.test.ts test/openai.adapter.test.ts
+
+      - name: Typecheck ai-core and api
+        run: |
+          pnpm --filter @zorfly/ai-core typecheck
+          pnpm --filter @zorfly/api typecheck
+
+      - name: Export AI integration assets
+        run: node scripts/export-ai-integration.mjs --export "$RUNNER_TEMP/ai-export"
+
+      - name: Upload export inventory artifact
+        uses: actions/upload-artifact@b4b15b8c7c6ac21ea08fcf65892d2ee8f75cf882 # v4.4.3
+        with:
+          name: ai-export-inventory
+          path: ${{ runner.temp }}/ai-export/export-inventory.json
+          retention-days: 30
+
+      - name: Stage export for the sync job
+        run: tar -C "$RUNNER_TEMP/ai-export" -cf "$RUNNER_TEMP/ai-export.tar" .
+
+      - name: Upload export payload (internal, job-to-job only)
+        uses: actions/upload-artifact@b4b15b8c7c6ac21ea08fcf65892d2ee8f75cf882 # v4.4.3
+        with:
+          name: ai-export-payload
+          path: ${{ runner.temp }}/ai-export.tar
+          retention-days: 1
+
+  sync:
+    needs: validate-and-export
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Download export payload
+        uses: actions/download-artifact@fa0a91b85d4f404e444e00e005971372dc801d16 # v4.1.8
+        with:
+          name: ai-export-payload
+          path: ${{ runner.temp }}/payload
+
+      - name: Extract export payload
+        run: |
+          mkdir -p "$RUNNER_TEMP/ai-export"
+          tar -C "$RUNNER_TEMP/ai-export" -xf "$RUNNER_TEMP/payload/ai-export.tar"
+
+      - name: Clone destination repository
+        env:
+          INTEGRATION_REPO_TOKEN: ${{ secrets.INTEGRATION_REPO_TOKEN }}
+        run: |
+          set -euo pipefail
+          if [ -z "${INTEGRATION_REPO_TOKEN:-}" ]; then
+            echo "::error::INTEGRATION_REPO_TOKEN secret is not set. See integration/README.md for how to create it." >&2
+            exit 1
+          fi
+          git clone --depth 1 "https://x-access-token:${INTEGRATION_REPO_TOKEN}@github.com/${DESTINATION_REPO}.git" "$RUNNER_TEMP/dest"
+          # Never let the token leak into logs, remotes shown by `git remote -v`, etc.
+          git -C "$RUNNER_TEMP/dest" remote set-url origin "https://github.com/${DESTINATION_REPO}.git"
+
+      - name: Sync branch from destination base
+        env:
+          INTEGRATION_REPO_TOKEN: ${{ secrets.INTEGRATION_REPO_TOKEN }}
+        run: |
+          set -euo pipefail
+          cd "$RUNNER_TEMP/dest"
+          # The automation branch is fully machine-generated (nothing else
+          # should hand-edit it), so each run rebuilds it fresh from the
+          # current base rather than merging — avoids ambiguous/conflicting
+          # history entirely. This never touches $DESTINATION_BASE itself.
+          git fetch "https://x-access-token:${INTEGRATION_REPO_TOKEN}@github.com/${DESTINATION_REPO}.git" \
+            "$DESTINATION_BASE:refs/remotes/origin/$DESTINATION_BASE"
+          git checkout -B "$DESTINATION_BRANCH" "origin/$DESTINATION_BASE"
+
+      - name: Replace generated content with new export
+        run: |
+          set -euo pipefail
+          dest="$RUNNER_TEMP/dest"
+          # Only touch the directories this sync owns. Never touch
+          # docs/ or anything else the OneXL team may have hand-edited —
+          # this workflow's payload never writes there, so nothing here
+          # can silently overwrite team changes outside these paths.
+          for dir in packages backend/api/ai database/ai tests/ai-core tests/api; do
+            rm -rf "${dest:?}/${dir:?}"
+          done
+          # Create only the *parent* directories — each target leaf below
+          # must NOT already exist, otherwise `cp -R src dest` nests src
+          # inside dest instead of replacing it.
+          mkdir -p "$dest/backend/api" "$dest/database" "$dest/tests" "$dest/manifest"
+          cp -R "$RUNNER_TEMP/ai-export/packages" "$dest/packages"
+          cp -R "$RUNNER_TEMP/ai-export/backend/api/ai" "$dest/backend/api/ai"
+          cp -R "$RUNNER_TEMP/ai-export/database/ai" "$dest/database/ai"
+          cp -R "$RUNNER_TEMP/ai-export/tests/ai-core" "$dest/tests/ai-core"
+          cp -R "$RUNNER_TEMP/ai-export/tests/api" "$dest/tests/api"
+          cp "$RUNNER_TEMP/ai-export/export-inventory.json" "$dest/manifest/export-inventory.json"
+
+      - name: Commit only if content changed
+        id: commit
+        run: |
+          set -euo pipefail
+          cd "$RUNNER_TEMP/dest"
+          git add -A
+          if git diff --cached --quiet; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            echo "No content changes since last sync — nothing to commit."
+            exit 0
+          fi
+          echo "changed=true" >> "$GITHUB_OUTPUT"
+          git -c user.name="zorfly-ai-sync[bot]" -c user.email="zorfly-ai-sync[bot]@users.noreply.github.com" \
+            commit -m "sync: update AI integration export" \
+            -m "Source commit: ${GITHUB_SHA}" \
+            -m "Workflow run: ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+
+      - name: Push automation branch
+        if: steps.commit.outputs.changed == 'true'
+        env:
+          INTEGRATION_REPO_TOKEN: ${{ secrets.INTEGRATION_REPO_TOKEN }}
+        run: |
+          set -euo pipefail
+          cd "$RUNNER_TEMP/dest"
+          # Force-push is scoped to the bot-owned automation branch ONLY —
+          # it is rebuilt from $DESTINATION_BASE every run by design (see
+          # previous step), so its remote history is expected to change,
+          # and the workflow's `concurrency:` group prevents two runs from
+          # racing this same push. $DESTINATION_BASE (protected main) is
+          # never pushed to by this workflow at all, force or otherwise.
+          git push --force "https://x-access-token:${INTEGRATION_REPO_TOKEN}@github.com/${DESTINATION_REPO}.git" \
+            "HEAD:refs/heads/${DESTINATION_BRANCH}"
+
+      - name: Create or update pull request
+        if: steps.commit.outputs.changed == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.INTEGRATION_REPO_TOKEN }}
+        run: |
+          set -euo pipefail
+          existing=$(gh pr list --repo "$DESTINATION_REPO" --head "$DESTINATION_BRANCH" --base "$DESTINATION_BASE" --json number --jq '.[0].number // empty')
+          body_file="$RUNNER_TEMP/pr-body.md"
+          {
+            echo "Automated AI-integration export from dhrubojyoti-1xl/zorfly@${GITHUB_SHA}."
+            echo
+            echo 'This PR only touches: `packages/ai-core/`, `backend/api/ai/`, `database/ai/`, `tests/ai-core/`, `tests/api/`, `manifest/export-inventory.json`.'
+            echo
+            echo "Review checklist for the OneXL team:"
+            echo '- [ ] Read `docs/BREAKING_CHANGES.md` and `docs/MERGE_GUIDE.md` before applying anything'
+            echo '- [ ] Run `scripts/check-patches.sh` if any `patches/` were also updated'
+            echo '- [ ] This is additive/optional — it does not require replacing your existing `src/ai/*`'
+            echo
+            echo "Generated by \`.github/workflows/sync-ai-integration.yml\`, run ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}."
+          } > "$body_file"
+          if [ -n "$existing" ]; then
+            gh pr edit "$existing" --repo "$DESTINATION_REPO" --body-file "$body_file"
+            echo "Updated PR #$existing"
+          else
+            gh pr create --repo "$DESTINATION_REPO" \
+              --base "$DESTINATION_BASE" \
+              --head "$DESTINATION_BRANCH" \
+              --title "Sync AI integration export" \
+              --body-file "$body_file"
+          fi

@@ -1,0 +1,162 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "manifestVersion": "1.0.0",
+  "description": "Authoritative allowlist of reusable AI-integration assets exported from dhrubojyoti-1xl/zorfly into dhrubojyoti-1xl/zorfly-enterprise-integration-. Nothing outside these entries is ever exported. Read by scripts/export-ai-integration.mjs. Each entry's `files` list gives explicit {source, dest} pairs so the exporter never has to guess a path mapping.",
+  "entries": [
+    {
+      "id": "ai-core-gateway",
+      "category": "ai-gateway-orchestration",
+      "description": "Provider-agnostic AI gateway: request/response types, retry/timeout/failover policy, capability routing.",
+      "files": [
+        { "source": "packages/ai-core/src/index.ts", "dest": "packages/ai-core/src/index.ts" },
+        { "source": "packages/ai-core/package.json", "dest": "packages/ai-core/package.json" },
+        { "source": "packages/ai-core/tsconfig.json", "dest": "packages/ai-core/tsconfig.json" }
+      ]
+    },
+    {
+      "id": "ai-core-tests",
+      "category": "ai-tests",
+      "description": "Unit tests for the AI gateway.",
+      "files": [
+        {
+          "source": "packages/ai-core/test/gateway.test.ts",
+          "dest": "tests/ai-core/gateway.test.ts"
+        }
+      ]
+    },
+    {
+      "id": "ai-provider-adapters",
+      "category": "ai-provider-adapter",
+      "description": "Claude and OpenAI provider adapters, HTTP transport, and provider factory.",
+      "files": [
+        {
+          "source": "backend/api/src/modules/ai/provider-factory.ts",
+          "dest": "backend/api/ai/provider-factory.ts"
+        },
+        {
+          "source": "backend/api/src/modules/ai/providers/claude.adapter.ts",
+          "dest": "backend/api/ai/providers/claude.adapter.ts"
+        },
+        {
+          "source": "backend/api/src/modules/ai/providers/openai.adapter.ts",
+          "dest": "backend/api/ai/providers/openai.adapter.ts"
+        },
+        {
+          "source": "backend/api/src/modules/ai/providers/http-transport.ts",
+          "dest": "backend/api/ai/providers/http-transport.ts"
+        }
+      ]
+    },
+    {
+      "id": "ai-execution-service",
+      "category": "ai-orchestration",
+      "description": "AI execution service, repository, HTTP router, request/response types, and validation schemas (idempotency, audit trail, tenant-scoped model configuration).",
+      "files": [
+        {
+          "source": "backend/api/src/modules/ai/ai.service.ts",
+          "dest": "backend/api/ai/ai.service.ts"
+        },
+        {
+          "source": "backend/api/src/modules/ai/ai.repository.ts",
+          "dest": "backend/api/ai/ai.repository.ts"
+        },
+        {
+          "source": "backend/api/src/modules/ai/ai.router.ts",
+          "dest": "backend/api/ai/ai.router.ts"
+        },
+        {
+          "source": "backend/api/src/modules/ai/ai.types.ts",
+          "dest": "backend/api/ai/ai.types.ts"
+        },
+        {
+          "source": "backend/api/src/modules/ai/ai.validation.ts",
+          "dest": "backend/api/ai/ai.validation.ts"
+        }
+      ]
+    },
+    {
+      "id": "ai-secret-resolver",
+      "category": "ai-config",
+      "description": "Secret-reference indirection so provider API keys are never stored in the database — only an env-var/secret-manager reference name is.",
+      "files": [
+        {
+          "source": "backend/api/src/modules/ai/secret-resolver.ts",
+          "dest": "backend/api/ai/secret-resolver.ts"
+        }
+      ]
+    },
+    {
+      "id": "ai-question-generation",
+      "category": "question-generation",
+      "description": "AI-assisted question drafting with structured output validation and human review handoff.",
+      "files": [
+        {
+          "source": "backend/api/src/modules/ai/question-generation.ts",
+          "dest": "backend/api/ai/question-generation.ts"
+        }
+      ]
+    },
+    {
+      "id": "ai-study-generation",
+      "category": "study-content-generation",
+      "description": "AI-assisted study material generation.",
+      "files": [
+        {
+          "source": "backend/api/src/modules/ai/study-generation.ts",
+          "dest": "backend/api/ai/study-generation.ts"
+        }
+      ]
+    },
+    {
+      "id": "ai-backend-tests",
+      "category": "ai-tests",
+      "description": "Integration and unit tests for the AI execution service, router, and OpenAI adapter.",
+      "files": [
+        {
+          "source": "backend/api/test/ai.router.postgres.test.ts",
+          "dest": "tests/api/ai.router.postgres.test.ts"
+        },
+        {
+          "source": "backend/api/test/ai.service.postgres.test.ts",
+          "dest": "tests/api/ai.service.postgres.test.ts"
+        },
+        {
+          "source": "backend/api/test/openai.adapter.test.ts",
+          "dest": "tests/api/openai.adapter.test.ts"
+        }
+      ]
+    },
+    {
+      "id": "ai-database-schema",
+      "category": "ai-database-schema",
+      "description": "AI-specific Prisma schema excerpt, equivalent verified-applicable raw SQL migration, and PostgreSQL/MongoDB compatibility documentation. Reference only — see database/ai/COMPATIBILITY.md.",
+      "files": [
+        {
+          "source": "database/ai/ai-schema-excerpt.prisma",
+          "dest": "database/ai/ai-schema-excerpt.prisma"
+        },
+        {
+          "source": "database/ai/ai-schema-migration.sql",
+          "dest": "database/ai/ai-schema-migration.sql"
+        },
+        { "source": "database/ai/COMPATIBILITY.md", "dest": "database/ai/COMPATIBILITY.md" }
+      ]
+    }
+  ],
+  "excludePatterns": [
+    "\\.env($|\\.[^e])",
+    "node_modules/",
+    "/dist/",
+    "\\.turbo/",
+    "/coverage/",
+    "\\.log$",
+    "/generated/",
+    "\\.DS_Store$"
+  ],
+  "requiredExternalDependenciesAllowlist": ["@anthropic-ai/sdk", "openai", "zod"],
+  "notes": [
+    "No frontend AI components are exported: the source repo has no dedicated AI UI pages or components at this manifest version (verified by inspection, not assumed) — see integration/README.md.",
+    "database/schema.prisma itself is never exported wholesale, only the curated database/ai/* excerpt files, which are themselves generated/extracted, not hand-invented.",
+    "This manifest is versioned; adding a new AI file requires adding a {source, dest} entry here first (see integration/README.md \"How to add a new AI file to the allowlist\")."
+  ]
+}

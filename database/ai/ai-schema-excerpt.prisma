@@ -1,0 +1,533 @@
+// =============================================================================
+// AI schema excerpt (reference only — not a standalone, compilable schema)
+// =============================================================================
+// Extracted verbatim from database/schema.prisma in dhrubojyoti-1xl/zorfly
+// (models/enums decorated `@@schema("ai")`). Provided for design reference
+// only — it will not `prisma generate`/`prisma validate` on its own because
+// it omits the datasource/generator blocks and the external models it has
+// relations to (Tenant, Question, QuestionVersion, MediaAssetVersion,
+// AssessmentAttempt) plus two shared enums it depends on (RecordStatus,
+// VersionStatus). See database/ai/COMPATIBILITY.md for the full dependency
+// list and for MongoDB/Mongoose vs. PostgreSQL/Prisma mapping guidance.
+//
+// The equivalent, verified-applicable raw SQL is in
+// database/ai/ai-schema-migration.sql (isolated, additive, reversible via
+// `DROP SCHEMA "ai" CASCADE`; validated by applying it end-to-end against a
+// real PostgreSQL instance under a scratch schema name).
+// =============================================================================enum AIExecutionStatus {
+  QUEUED
+  RUNNING
+  SUCCEEDED
+  FAILED
+  CANCELLED
+  BLOCKED
+
+  @@schema("ai")
+}
+
+enum AIExecutionPurpose {
+  QUESTION_GENERATION
+  RESPONSE_EVALUATION
+  FEEDBACK
+  RECOMMENDATION
+  IMAGE_GENERATION
+  SVG_GENERATION
+  MODERATION
+  AGENT
+  OTHER
+
+  @@schema("ai")
+}
+
+enum AIRecommendationStatus {
+  PROPOSED
+  ACCEPTED
+  DISMISSED
+  EXPIRED
+  WITHDRAWN
+
+  @@schema("ai")
+}
+
+enum AgentRunStatus {
+  QUEUED
+  RUNNING
+  WAITING_APPROVAL
+  SUCCEEDED
+  FAILED
+  CANCELLED
+
+
+model AIProvider {
+  id            String                          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  key           String                          @unique @db.VarChar(80)
+  name          String                          @db.VarChar(160)
+  capabilities  Json                            @db.JsonB
+  status        RecordStatus                    @default(ACTIVE)
+  createdAt     DateTime                        @default(now()) @db.Timestamptz(6)
+  updatedAt     DateTime                        @updatedAt @db.Timestamptz(6)
+  models        AIModel[]
+  tenantConfigs TenantAIProviderConfiguration[]
+
+  @@index([status])
+  @@schema("ai")
+}
+
+model AIModel {
+  id                    String                 @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  providerId            String                 @db.Uuid
+  providerModelKey      String                 @db.VarChar(160)
+  displayName           String                 @db.VarChar(160)
+  capabilities          Json                   @db.JsonB
+  contextWindowTokens   Int?
+  inputPricePerMillion  Decimal?               @db.Decimal(19, 8)
+  outputPricePerMillion Decimal?               @db.Decimal(19, 8)
+  imagePriceConfig      Json?                  @db.JsonB
+  pricingCurrency       String                 @default("USD") @db.Char(3)
+  pricingEffectiveAt    DateTime?              @db.Timestamptz(6)
+  status                RecordStatus           @default(ACTIVE)
+  createdAt             DateTime               @default(now()) @db.Timestamptz(6)
+  updatedAt             DateTime               @updatedAt @db.Timestamptz(6)
+  provider              AIProvider             @relation(fields: [providerId], references: [id], onDelete: Restrict)
+  configurations        AIModelConfiguration[]
+
+  @@unique([providerId, providerModelKey])
+  @@index([status])
+  @@schema("ai")
+}
+
+model TenantAIProviderConfiguration {
+  id               String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId         String       @db.Uuid
+  providerId       String       @db.Uuid
+  secretReference  String       @db.VarChar(512)
+  endpointOverride String?      @db.VarChar(2048)
+  organizationRef  String?      @db.VarChar(255)
+  quota            Json?        @db.JsonB
+  status           RecordStatus @default(ACTIVE)
+  createdAt        DateTime     @default(now()) @db.Timestamptz(6)
+  updatedAt        DateTime     @updatedAt @db.Timestamptz(6)
+  createdById      String?      @db.Uuid
+  updatedById      String?      @db.Uuid
+  deletedAt        DateTime?    @db.Timestamptz(6)
+  deletedById      String?      @db.Uuid
+  rowVersion       Int          @default(1)
+  tenant           Tenant       @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  provider         AIProvider   @relation(fields: [providerId], references: [id], onDelete: Restrict)
+
+  @@unique([tenantId, providerId])
+  @@index([tenantId, status, deletedAt])
+  @@schema("ai")
+}
+
+model AIModelConfiguration {
+  id              String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId        String              @db.Uuid
+  modelId         String              @db.Uuid
+  key             String              @db.VarChar(120)
+  purpose         AIExecutionPurpose
+  parameters      Json                @db.JsonB
+  fallbackChain   Json?               @db.JsonB
+  safetyPolicy    Json?               @db.JsonB
+  maxInputTokens  Int?
+  maxOutputTokens Int?
+  dailyBudget     Decimal?            @db.Decimal(19, 4)
+  monthlyBudget   Decimal?            @db.Decimal(19, 4)
+  status          RecordStatus        @default(ACTIVE)
+  createdAt       DateTime            @default(now()) @db.Timestamptz(6)
+  updatedAt       DateTime            @updatedAt @db.Timestamptz(6)
+  createdById     String?             @db.Uuid
+  updatedById     String?             @db.Uuid
+  deletedAt       DateTime?           @db.Timestamptz(6)
+  deletedById     String?             @db.Uuid
+  rowVersion      Int                 @default(1)
+  tenant          Tenant              @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  model           AIModel             @relation(fields: [modelId], references: [id], onDelete: Restrict)
+  executions      AIPromptExecution[]
+  agentRuns       AgentRun[]
+
+  @@unique([tenantId, key])
+  @@index([tenantId, purpose, status, deletedAt])
+  @@schema("ai")
+}
+
+model AIPrompt {
+  id               String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId         String             @db.Uuid
+  key              String             @db.VarChar(120)
+  name             String             @db.VarChar(200)
+  purpose          AIExecutionPurpose
+  description      String?            @db.Text
+  status           RecordStatus       @default(DRAFT)
+  currentVersionId String?            @unique @db.Uuid
+  createdAt        DateTime           @default(now()) @db.Timestamptz(6)
+  updatedAt        DateTime           @updatedAt @db.Timestamptz(6)
+  createdById      String?            @db.Uuid
+  updatedById      String?            @db.Uuid
+  deletedAt        DateTime?          @db.Timestamptz(6)
+  deletedById      String?            @db.Uuid
+  rowVersion       Int                @default(1)
+  tenant           Tenant             @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  templates        AIPromptTemplate[]
+  currentVersion   AIPromptVersion?   @relation("CurrentPromptVersion", fields: [currentVersionId], references: [id], onDelete: Restrict)
+  versions         AIPromptVersion[]  @relation("PromptVersions")
+
+  @@unique([tenantId, key])
+  @@index([tenantId, purpose, status, deletedAt])
+  @@schema("ai")
+}
+
+model AIPromptTemplate {
+  id             String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId       String    @db.Uuid
+  promptId       String    @db.Uuid
+  key            String    @db.VarChar(120)
+  templateRole   String    @default("USER") @db.VarChar(40)
+  content        String    @db.Text
+  variableSchema Json      @db.JsonB
+  sortOrder      Int       @default(0)
+  createdAt      DateTime  @default(now()) @db.Timestamptz(6)
+  updatedAt      DateTime  @updatedAt @db.Timestamptz(6)
+  createdById    String?   @db.Uuid
+  updatedById    String?   @db.Uuid
+  deletedAt      DateTime? @db.Timestamptz(6)
+  deletedById    String?   @db.Uuid
+  rowVersion     Int       @default(1)
+  prompt         AIPrompt  @relation(fields: [promptId], references: [id], onDelete: Restrict)
+
+  @@unique([promptId, key])
+  @@index([tenantId, promptId, sortOrder])
+  @@schema("ai")
+}
+
+model AIPromptVersion {
+  id               String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId         String              @db.Uuid
+  promptId         String              @db.Uuid
+  versionNumber    Int
+  status           VersionStatus       @default(DRAFT)
+  messages         Json                @db.JsonB
+  variableSchema   Json                @db.JsonB
+  outputSchema     Json?               @db.JsonB
+  safetyPolicy     Json?               @db.JsonB
+  evaluationConfig Json?               @db.JsonB
+  contentHash      String              @db.Char(64)
+  publishedAt      DateTime?           @db.Timestamptz(6)
+  createdAt        DateTime            @default(now()) @db.Timestamptz(6)
+  updatedAt        DateTime            @updatedAt @db.Timestamptz(6)
+  createdById      String?             @db.Uuid
+  prompt           AIPrompt            @relation("PromptVersions", fields: [promptId], references: [id], onDelete: Restrict)
+  currentForPrompt AIPrompt?           @relation("CurrentPromptVersion")
+  executions       AIPromptExecution[]
+
+  @@unique([promptId, versionNumber])
+  @@unique([tenantId, contentHash])
+  @@index([tenantId, status, publishedAt])
+  @@schema("ai")
+}
+
+model AIPromptExecution {
+  id                   BigInt                      @id @default(autoincrement())
+  publicId             String                      @unique @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId             String                      @db.Uuid
+  promptVersionId      String?                     @db.Uuid
+  modelConfigurationId String                      @db.Uuid
+  purpose              AIExecutionPurpose
+  status               AIExecutionStatus           @default(QUEUED)
+  idempotencyKey       String                      @db.VarChar(255)
+  traceId              String?                     @db.VarChar(64)
+  correlationId        String?                     @db.VarChar(128)
+  sourceType           String?                     @db.VarChar(80)
+  sourceId             String?                     @db.VarChar(255)
+  inputHash            String                      @db.Char(64)
+  inputSnapshot        Json?                       @db.JsonB
+  outputSnapshot       Json?                       @db.JsonB
+  providerRequestId    String?                     @db.VarChar(255)
+  startedAt            DateTime?                   @db.Timestamptz(6)
+  completedAt          DateTime?                   @db.Timestamptz(6)
+  latencyMs            Int?
+  failureCode          String?                     @db.VarChar(160)
+  failureDetail        Json?                       @db.JsonB
+  createdAt            DateTime                    @default(now()) @db.Timestamptz(6)
+  updatedAt            DateTime                    @updatedAt @db.Timestamptz(6)
+  promptVersion        AIPromptVersion?            @relation(fields: [promptVersionId], references: [id], onDelete: Restrict)
+  modelConfiguration   AIModelConfiguration        @relation(fields: [modelConfigurationId], references: [id], onDelete: Restrict)
+  logs                 AIPromptLog[]
+  tokenUsage           AITokenUsage[]
+  costEntries          AICostTracking[]
+  generatedImages      GeneratedImage[]
+  questionGenerations  QuestionGenerationHistory[]
+  evaluations          AIEvaluationHistory[]
+  feedback             AIFeedbackHistory[]
+  recommendations      AIRecommendation[]
+  agentRuns            AgentRun[]
+
+  @@unique([tenantId, idempotencyKey])
+  @@index([tenantId, purpose, status, createdAt])
+  @@index([tenantId, sourceType, sourceId])
+  @@index([createdAt], type: Brin)
+  @@schema("ai")
+}
+
+model AIPromptLog {
+  id          BigInt            @id @default(autoincrement())
+  tenantId    String            @db.Uuid
+  executionId BigInt
+  sequence    Int
+  level       String            @db.VarChar(20)
+  eventType   String            @db.VarChar(80)
+  message     String?           @db.Text
+  attributes  Json?             @db.JsonB
+  occurredAt  DateTime          @default(now()) @db.Timestamptz(6)
+  createdAt   DateTime          @default(now()) @db.Timestamptz(6)
+  updatedAt   DateTime          @updatedAt @db.Timestamptz(6)
+  execution   AIPromptExecution @relation(fields: [executionId], references: [id], onDelete: Restrict)
+
+  @@unique([executionId, sequence])
+  @@index([tenantId, level, occurredAt])
+  @@index([occurredAt], type: Brin)
+  @@schema("ai")
+}
+
+model AITokenUsage {
+  id                BigInt            @id @default(autoincrement())
+  tenantId          String            @db.Uuid
+  executionId       BigInt
+  providerModelKey  String            @db.VarChar(160)
+  inputTokens       Int               @default(0)
+  cachedInputTokens Int               @default(0)
+  outputTokens      Int               @default(0)
+  reasoningTokens   Int               @default(0)
+  totalTokens       Int               @default(0)
+  measuredAt        DateTime          @default(now()) @db.Timestamptz(6)
+  createdAt         DateTime          @default(now()) @db.Timestamptz(6)
+  updatedAt         DateTime          @updatedAt @db.Timestamptz(6)
+  execution         AIPromptExecution @relation(fields: [executionId], references: [id], onDelete: Restrict)
+
+  @@index([tenantId, measuredAt])
+  @@index([executionId])
+  @@index([measuredAt], type: Brin)
+  @@schema("ai")
+}
+
+model AICostTracking {
+  id             BigInt            @id @default(autoincrement())
+  tenantId       String            @db.Uuid
+  executionId    BigInt
+  costType       String            @db.VarChar(40)
+  quantity       Decimal           @db.Decimal(19, 6)
+  unit           String            @db.VarChar(40)
+  unitPrice      Decimal           @db.Decimal(19, 8)
+  amount         Decimal           @db.Decimal(19, 8)
+  currency       String            @db.Char(3)
+  pricingVersion String            @db.VarChar(80)
+  incurredAt     DateTime          @default(now()) @db.Timestamptz(6)
+  createdAt      DateTime          @default(now()) @db.Timestamptz(6)
+  updatedAt      DateTime          @updatedAt @db.Timestamptz(6)
+  execution      AIPromptExecution @relation(fields: [executionId], references: [id], onDelete: Restrict)
+
+  @@index([tenantId, incurredAt])
+  @@index([executionId])
+  @@index([incurredAt], type: Brin)
+  @@schema("ai")
+}
+
+model SVGAsset {
+  id                  String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId            String            @db.Uuid
+  mediaAssetVersionId String            @unique @db.Uuid
+  sourceType          String            @db.VarChar(40)
+  sanitizerVersion    String            @db.VarChar(80)
+  rendererVersion     String            @db.VarChar(80)
+  viewBox             String?           @db.VarChar(120)
+  elementCount        Int?
+  sanitizedHash       String            @db.Char(64)
+  safetyReport        Json              @db.JsonB
+  createdAt           DateTime          @default(now()) @db.Timestamptz(6)
+  updatedAt           DateTime          @updatedAt @db.Timestamptz(6)
+  mediaAssetVersion   MediaAssetVersion @relation(fields: [mediaAssetVersionId], references: [id], onDelete: Restrict)
+
+  @@unique([tenantId, sanitizedHash])
+  @@index([tenantId, createdAt])
+  @@schema("ai")
+}
+
+model GeneratedImage {
+  id                  String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId            String            @db.Uuid
+  executionId         BigInt
+  mediaAssetVersionId String            @db.Uuid
+  providerImageId     String?           @db.VarChar(255)
+  revisedPrompt       String?           @db.Text
+  generationParams    Json              @db.JsonB
+  moderationResult    Json?             @db.JsonB
+  provenance          Json              @db.JsonB
+  createdAt           DateTime          @default(now()) @db.Timestamptz(6)
+  updatedAt           DateTime          @updatedAt @db.Timestamptz(6)
+  execution           AIPromptExecution @relation(fields: [executionId], references: [id], onDelete: Restrict)
+  mediaAssetVersion   MediaAssetVersion @relation(fields: [mediaAssetVersionId], references: [id], onDelete: Restrict)
+  cacheEntries        ImageCache[]
+
+  @@index([tenantId, createdAt])
+  @@index([tenantId, executionId])
+  @@schema("ai")
+}
+
+model ImageCache {
+  id               String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId         String         @db.Uuid
+  cacheKey         String         @db.Char(64)
+  generatedImageId String         @db.Uuid
+  policyVersion    String         @db.VarChar(80)
+  hitCount         BigInt         @default(0)
+  lastHitAt        DateTime?      @db.Timestamptz(6)
+  expiresAt        DateTime       @db.Timestamptz(6)
+  createdAt        DateTime       @default(now()) @db.Timestamptz(6)
+  updatedAt        DateTime       @updatedAt @db.Timestamptz(6)
+  generatedImage   GeneratedImage @relation(fields: [generatedImageId], references: [id], onDelete: Restrict)
+
+  @@unique([tenantId, cacheKey, policyVersion])
+  @@index([tenantId, expiresAt])
+  @@schema("ai")
+}
+
+model QuestionGenerationHistory {
+  id                         BigInt            @id @default(autoincrement())
+  publicId                   String            @unique @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId                   String            @db.Uuid
+  executionId                BigInt
+  /**
+   * Ordinal position of this draft within its execution's raw output; stable across replays/repairs.
+   */
+  draftIndex                 Int
+  sourceQuestionId           String?           @db.Uuid
+  generatedQuestionVersionId String?           @db.Uuid
+  request                    Json              @db.JsonB
+  validationResult           Json?             @db.JsonB
+  humanDecision              String?           @db.VarChar(40)
+  decidedById                String?           @db.Uuid
+  decidedAt                  DateTime?         @db.Timestamptz(6)
+  createdAt                  DateTime          @default(now()) @db.Timestamptz(6)
+  updatedAt                  DateTime          @updatedAt @db.Timestamptz(6)
+  execution                  AIPromptExecution @relation(fields: [executionId], references: [id], onDelete: Restrict)
+  sourceQuestion             Question?         @relation(fields: [sourceQuestionId], references: [id], onDelete: Restrict)
+  generatedQuestionVersion   QuestionVersion?  @relation("GeneratedQuestionVersion", fields: [generatedQuestionVersionId], references: [id], onDelete: Restrict)
+
+  @@unique([executionId, draftIndex])
+  @@index([tenantId, createdAt])
+  @@index([tenantId, generatedQuestionVersionId])
+  @@schema("ai")
+}
+
+model AIEvaluationHistory {
+  id             BigInt             @id @default(autoincrement())
+  tenantId       String             @db.Uuid
+  executionId    BigInt
+  attemptId      BigInt?
+  evaluationType String             @db.VarChar(80)
+  inputReference Json               @db.JsonB
+  result         Json               @db.JsonB
+  confidence     Decimal?           @db.Decimal(7, 6)
+  humanOutcome   String?            @db.VarChar(40)
+  reviewedById   String?            @db.Uuid
+  reviewedAt     DateTime?          @db.Timestamptz(6)
+  createdAt      DateTime           @default(now()) @db.Timestamptz(6)
+  updatedAt      DateTime           @updatedAt @db.Timestamptz(6)
+  execution      AIPromptExecution  @relation(fields: [executionId], references: [id], onDelete: Restrict)
+  attempt        AssessmentAttempt? @relation(fields: [attemptId], references: [id], onDelete: Restrict)
+
+  @@index([tenantId, evaluationType, createdAt])
+  @@index([tenantId, attemptId])
+  @@schema("ai")
+}
+
+model AIFeedbackHistory {
+  id           BigInt              @id @default(autoincrement())
+  tenantId     String              @db.Uuid
+  executionId  BigInt
+  subjectType  String              @db.VarChar(80)
+  subjectId    String              @db.VarChar(255)
+  feedback     Json                @db.JsonB
+  publishedAt  DateTime?           @db.Timestamptz(6)
+  supersedesId BigInt?
+  createdAt    DateTime            @default(now()) @db.Timestamptz(6)
+  updatedAt    DateTime            @updatedAt @db.Timestamptz(6)
+  execution    AIPromptExecution   @relation(fields: [executionId], references: [id], onDelete: Restrict)
+  supersedes   AIFeedbackHistory?  @relation("FeedbackHistory", fields: [supersedesId], references: [id], onDelete: Restrict)
+  revisions    AIFeedbackHistory[] @relation("FeedbackHistory")
+
+  @@index([tenantId, subjectType, subjectId, createdAt])
+  @@schema("ai")
+}
+
+model AIRecommendation {
+  id                 String                 @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId           String                 @db.Uuid
+  executionId        BigInt
+  subjectType        String                 @db.VarChar(80)
+  subjectId          String                 @db.VarChar(255)
+  recommendationType String                 @db.VarChar(80)
+  recommendation     Json                   @db.JsonB
+  evidence           Json                   @db.JsonB
+  status             AIRecommendationStatus @default(PROPOSED)
+  expiresAt          DateTime?              @db.Timestamptz(6)
+  decidedAt          DateTime?              @db.Timestamptz(6)
+  decidedById        String?                @db.Uuid
+  createdAt          DateTime               @default(now()) @db.Timestamptz(6)
+  updatedAt          DateTime               @updatedAt @db.Timestamptz(6)
+  execution          AIPromptExecution      @relation(fields: [executionId], references: [id], onDelete: Restrict)
+
+  @@index([tenantId, subjectType, subjectId, status])
+  @@index([tenantId, expiresAt])
+  @@schema("ai")
+}
+
+model AgentRun {
+  id                   String               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId             String               @db.Uuid
+  executionId          BigInt?
+  modelConfigurationId String               @db.Uuid
+  agentKey             String               @db.VarChar(120)
+  agentVersion         String               @db.VarChar(80)
+  status               AgentRunStatus       @default(QUEUED)
+  objective            String               @db.Text
+  input                Json                 @db.JsonB
+  output               Json?                @db.JsonB
+  policySnapshot       Json                 @db.JsonB
+  currentStep          Int                  @default(0)
+  startedAt            DateTime?            @db.Timestamptz(6)
+  completedAt          DateTime?            @db.Timestamptz(6)
+  createdAt            DateTime             @default(now()) @db.Timestamptz(6)
+  updatedAt            DateTime             @updatedAt @db.Timestamptz(6)
+  execution            AIPromptExecution?   @relation(fields: [executionId], references: [id], onDelete: Restrict)
+  modelConfiguration   AIModelConfiguration @relation(fields: [modelConfigurationId], references: [id], onDelete: Restrict)
+  steps                AgentRunStep[]
+
+  @@index([tenantId, status, createdAt])
+  @@index([tenantId, agentKey, agentVersion])
+  @@schema("ai")
+}
+
+model AgentRunStep {
+  id               BigInt         @id @default(autoincrement())
+  tenantId         String         @db.Uuid
+  agentRunId       String         @db.Uuid
+  sequence         Int
+  stepType         String         @db.VarChar(80)
+  toolName         String?        @db.VarChar(160)
+  status           AgentRunStatus
+  input            Json?          @db.JsonB
+  output           Json?          @db.JsonB
+  requiresApproval Boolean        @default(false)
+  approvedById     String?        @db.Uuid
+  approvedAt       DateTime?      @db.Timestamptz(6)
+  startedAt        DateTime?      @db.Timestamptz(6)
+  completedAt      DateTime?      @db.Timestamptz(6)
+  createdAt        DateTime       @default(now()) @db.Timestamptz(6)
+  updatedAt        DateTime       @updatedAt @db.Timestamptz(6)
+  agentRun         AgentRun       @relation(fields: [agentRunId], references: [id], onDelete: Restrict)
+
+  @@unique([agentRunId, sequence])
+  @@index([tenantId, status, createdAt])
+  @@schema("ai")
+}
