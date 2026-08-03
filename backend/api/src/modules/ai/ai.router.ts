@@ -1,6 +1,11 @@
 import { randomUUID } from 'node:crypto';
 import { Router, type Request } from 'express';
-import { AIExecutionPurpose, type Prisma, type ZorflyPrismaClient } from '@zorfly/database';
+import {
+  AIExecutionPurpose,
+  QuestionStatus,
+  type Prisma,
+  type ZorflyPrismaClient
+} from '@zorfly/database';
 import { ApiError } from '../../platform/api-error.js';
 import { validate } from '../../platform/validate.js';
 import { questionSchema, type QuestionInput } from '../assessment/question.validation.js';
@@ -258,7 +263,8 @@ export function createAiRouter(
                 generatedQuestionVersionId: version.id,
                 decidedById: auth.userId
               });
-            }
+            },
+            QuestionStatus.IN_REVIEW
           );
           created.push(record.id);
         } catch (error) {
@@ -384,7 +390,8 @@ export function createAiRouter(
                 generatedQuestionVersionId: version.id,
                 decidedById: auth.userId
               });
-            }
+            },
+            QuestionStatus.IN_REVIEW
           );
           questionIds.push(record.id);
         }

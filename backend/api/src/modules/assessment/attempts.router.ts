@@ -385,6 +385,10 @@ export function createAttemptRouter(
       include: attemptInclude
     });
     if (existing) {
+      if (timeIsOver(existing)) {
+        await finalizeAttempt(request, auth, membership, existing);
+        throw new ApiError(422, 'Your previous attempt timed out and was submitted automatically.');
+      }
       response.json({ success: true, data: clientView(existing) });
       return;
     }
@@ -556,7 +560,8 @@ export function createAttemptRouter(
       throw new ApiError(404, 'The requested attempt was not found.');
     }
     if (timeIsOver(attempt)) {
-      throw new ApiError(422, 'Time is over for this attempt. Please submit now.');
+      await finalizeAttempt(request, auth, membership, attempt);
+      throw new ApiError(422, 'Time is over for this attempt. It was submitted automatically.');
     }
     const attemptQuestion = attempt.questions.find(
       (question) => question.questionVersion.questionId === input.questionId
@@ -602,18 +607,20 @@ export function createAttemptRouter(
     response.json({ success: true, data: { saved: true } });
   });
 
-  router.post('/:id/submit', async (request, response) => {
-    const auth = principal(request);
-    const membership = await activeMembership(prisma, auth);
-    const attempt = await findAttempt(
-      prisma,
-      queryString(request.params.id),
-      auth.tenantId,
-      membership.id
-    );
-    if (!attempt || attempt.status !== AttemptStatus.IN_PROGRESS) {
-      throw new ApiError(404, 'The requested attempt was not found.');
-    }
+  /**
+   * Scores and closes an IN_PROGRESS attempt using whatever answers were
+   * saved. Shared by the explicit /submit endpoint and by the lazy
+   * auto-submit checks below (start/resume/answer-save), so an attempt
+   * whose client never calls /submit (crashed tab, lost connectivity)
+   * still gets finalized the next time the server sees it, instead of
+   * staying IN_PROGRESS forever.
+   */
+  async function finalizeAttempt(
+    request: Request,
+    auth: SessionPrincipal & { tenantId: string },
+    membership: { id: string; user: { emailCanonical: string; displayName: string | null } },
+    attempt: AttemptRecord
+  ) {
     const submittedAt = new Date();
     const version = attempt.assignment?.assessmentVersion;
     if (!version) throw new ApiError(422, 'This attempt is not linked to an assessment.');
@@ -662,6 +669,31 @@ export function createAttemptRouter(
       perCategory: scores.perCategory
     } as unknown as Prisma.InputJsonObject;
     await prisma.$transaction(async (transaction) => {
+      // Claim the attempt first, conditioned on it still being IN_PROGRESS.
+      // Two concurrent /submit calls (double-click, retry-after-timeout)
+      // both pass the earlier findAttempt() status check before either
+      // transaction commits; only one of these conditional updates can
+      // match a row, so the loser aborts here instead of double-scoring,
+      // double-notifying, or double-issuing a certificate.
+      const claimed = await transaction.assessmentAttempt.updateMany({
+        where: { id: attempt.id, status: AttemptStatus.IN_PROGRESS },
+        data: {
+          status,
+          submittedAt,
+          evaluatedAt: submittedAt,
+          publishedAt: status === AttemptStatus.PUBLISHED ? submittedAt : null,
+          durationSeconds,
+          rawScore: scores.obtained,
+          finalScore: scores.obtained,
+          percentage: scores.percentage,
+          passed,
+          resultSummary,
+          rowVersion: { increment: 1 }
+        }
+      });
+      if (claimed.count === 0) {
+        throw new ApiError(409, 'This attempt was already submitted by another request.');
+      }
       for (const question of attempt.questions) {
         const result = scoreByQuestion.get(question.questionVersion.questionId);
         if (!result) continue;
@@ -713,22 +745,6 @@ export function createAttemptRouter(
           }
         });
       }
-      await transaction.assessmentAttempt.update({
-        where: { id: attempt.id },
-        data: {
-          status,
-          submittedAt,
-          evaluatedAt: submittedAt,
-          publishedAt: status === AttemptStatus.PUBLISHED ? submittedAt : null,
-          durationSeconds,
-          rawScore: scores.obtained,
-          finalScore: scores.obtained,
-          percentage: scores.percentage,
-          passed,
-          resultSummary,
-          rowVersion: { increment: 1 }
-        }
-      });
       if (attempt.assignmentId) {
         await transaction.assessmentAssignment.update({
           where: { id: attempt.assignmentId },
@@ -791,23 +807,39 @@ export function createAttemptRouter(
       },
       context(request)
     );
-    response.json({
-      success: true,
-      data: {
-        id: attempt.publicId,
-        obtained: scores.obtained,
-        max: scores.max,
-        percentage: scores.percentage,
-        passed,
-        accuracy: scores.accuracy,
-        detectionRate: scores.detectionRate,
-        pendingReview: scores.pendingReviewCount > 0,
-        timeTakenSec: durationSeconds,
-        perQuestion: scores.perQuestion,
-        perCategory: scores.perCategory,
-        message: 'Test submitted successfully.'
-      }
-    });
+    return {
+      id: attempt.publicId,
+      obtained: scores.obtained,
+      max: scores.max,
+      percentage: scores.percentage,
+      passed,
+      accuracy: scores.accuracy,
+      detectionRate: scores.detectionRate,
+      pendingReview: scores.pendingReviewCount > 0,
+      timeTakenSec: durationSeconds,
+      perQuestion: scores.perQuestion,
+      perCategory: scores.perCategory,
+      late,
+      message: late
+        ? 'Time expired — your attempt was submitted automatically.'
+        : 'Test submitted successfully.'
+    };
+  }
+
+  router.post('/:id/submit', async (request, response) => {
+    const auth = principal(request);
+    const membership = await activeMembership(prisma, auth);
+    const attempt = await findAttempt(
+      prisma,
+      queryString(request.params.id),
+      auth.tenantId,
+      membership.id
+    );
+    if (!attempt || attempt.status !== AttemptStatus.IN_PROGRESS) {
+      throw new ApiError(404, 'The requested attempt was not found.');
+    }
+    const data = await finalizeAttempt(request, auth, membership, attempt);
+    response.json({ success: true, data });
   });
 
   router.get('/:id/review', async (request, response) => {
@@ -889,6 +921,10 @@ export function createAttemptRouter(
     if (!attempt) throw new ApiError(404, 'The requested attempt was not found.');
     if (attempt.status !== AttemptStatus.IN_PROGRESS) {
       throw new ApiError(422, 'This attempt has already been submitted.');
+    }
+    if (timeIsOver(attempt)) {
+      await finalizeAttempt(request, auth, membership, attempt);
+      throw new ApiError(422, 'This attempt timed out and was submitted automatically.');
     }
     response.json({ success: true, data: clientView(attempt) });
   });
