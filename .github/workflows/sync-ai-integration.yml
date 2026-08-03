@@ -81,6 +81,9 @@ jobs:
       - name: Apply database migrations
         run: pnpm exec prisma migrate deploy
 
+      - name: Build API workspace dependencies
+        run: pnpm --filter @zorfly/api... build
+
       - name: Run AI-specific tests (ai-core)
         run: pnpm --filter @zorfly/ai-core test
 
